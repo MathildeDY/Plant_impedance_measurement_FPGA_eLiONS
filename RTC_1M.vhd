@@ -20,6 +20,9 @@ architecture beh of RTC_1M is
 
 signal pulses : unsigned  (31 downto 0) := (others => '0');
 signal wake_time : unsigned (31 downto 0);
+constant clk_freq: integer		:= 	1000000; -- clk_freq = 1 sec
+constant zero_point_one_sec : integer	 := 	clk_freq/10; --0.1 sec
+constant one_point_one_sec : integer	 := 	clk_freq + clk_freq/10; --1.1 sec
 
 
 begin 
@@ -38,12 +41,12 @@ process(arstn, clk)
 			 powergating <= '1';
 			  cnt_en <= '0';
 		      --elsif (pulses = "00000000010111010001010000100000") then --6.1 sec
-				elsif (pulses = (wake_time + to_unsigned(100000,32)) ) then --6.1 sec
+				elsif (pulses = (wake_time + to_unsigned(zero_point_one_sec,32)) ) then --6.1 sec
 			 pulses <= pulses + 1;
 			 powergating <= '1';
 			 cnt_en <= '1';
 		      --elsif (pulses = "00000000011011000101011001100000") then --7.1 sec
-				elsif (pulses > (wake_time + to_unsigned(1100000,32)) ) then --7.1 sec
+				elsif (pulses >= (wake_time + to_unsigned(one_point_one_sec,32)) ) then --7.1 sec
 			 pulses <= (others => '0');
 			 powergating <= '0';
 			 cnt_en <= '0';
@@ -54,7 +57,7 @@ process(arstn, clk)
     end process;
 
  -- Time to wake
-wake_time <= resize(unsigned(SW) * to_unsigned(1000000,20) ,32);
+wake_time <= resize(unsigned(SW) * to_unsigned(clk_freq,20) ,32);
 output_sec <= std_logic_vector(pulses(31 downto 20));
 
 end architecture; 
