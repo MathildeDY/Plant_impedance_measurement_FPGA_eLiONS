@@ -73,9 +73,10 @@ signal display_sec : std_logic_vector (11 downto 0);
 signal disp0 : std_logic_vector (0 to 6);
 signal disp2,disp3,disp4,disp5 : std_logic_vector (0 to 6);
 signal clk : std_logic;
+signal rst_pll :std_logic;
 begin 
 
-PLL : myPLL_0002 port map (refclk => clk_in, rst=> not(arstn), outclk_0=>clk, locked =>lock);
+PLL : myPLL_0002 port map (refclk => clk_in, rst=> rst_pll, outclk_0=>clk, locked =>lock);
 chip: UMC_Agrichip1 port map (SW => SW, clk => clk, arstn => arstn, analog_in => analog_in, load =>load_f, frequency => freq, output_sec => display_sec );
 
 process(clk, arstn)
@@ -89,6 +90,8 @@ freq_LSB <= std_logic_vector(freq(7 downto 0));
 end if;
 
 end process;
+
+rst_pll <= not(arstn);
 
 --TX: Agrichip1_TX port map (byte0 => freq_MSB, byte1=> freq_LSB, clk =>clk , arstn =>arstn, scl=> scl, sda =>sda); --wr_en => tx_enable
 

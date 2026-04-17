@@ -20,7 +20,7 @@ architecture beh of UMC_Agrichip1 is
 component RTC_1M is
     Port (
 	clk: in STD_LOGIC; 
-        arstn   : in  STD_LOGIC;
+   arstn   : in  STD_LOGIC;
    SW : in std_logic_vector (9 downto 0);
 	powergating : out STD_LOGIC;
 	cnt_en : out STD_LOGIC;
