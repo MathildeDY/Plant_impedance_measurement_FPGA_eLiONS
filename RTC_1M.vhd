@@ -18,52 +18,87 @@ end RTC_1M;
 
 architecture beh of RTC_1M is 
 
-component one_min_counter is
-		Port (
-			arstn : in std_logic;
-			clk : in std_logic;
-			en : out std_logic;
-			sec : out std_logic_vector (5 downto 0)
-		);
+component one_sec_counter is
+	Port(
+		clk : in std_logic;
+		arstn : in std_logic;
+		en : out std_logic
+	);
 end component;
 
 signal minutes : unsigned  (5 downto 0) := (others => '0');
-signal seconds : std_logic_vector (5 downto 0);
-signal enable : std_logic := '0'; 
+signal seconds : unsigned (5 downto 0) := (others => '0'); 
+-- signal hour : std_logic (5 downto 0) := (others => '0');
+signal sec_enable : std_logic := '0';
+signal reset_time : std_logic := '0';
+type state_t is (IDLE, RESET_PHASE, MEASURE, STOP);
+signal state : state_t := IDLE;
 
 begin 
 
-min_count : one_min_counter port map (arstn => arstn, clk => clk, en => enable, sec => seconds);
+sec_count : one_sec_counter port map (arstn => arstn, clk => clk, en => sec_enable);
 
-
+-- Compteur
 process(arstn, clk)
 	begin
-		if arstn = '0'then --reset
+		if arstn = '0' then --reset
 			minutes <= (others => '0');
-			powergating <='0';
-			cnt_en <= '0';
+			seconds <= (others => '0');
 		elsif rising_edge(clk) then
-			if enable = '1' then
-				if (minutes + 1) = (unsigned(SW) - 1) then -- input capture reset
-					powergating <= '1';
-					cnt_en <= '0';
-					minutes <= minutes + 1;
-				elsif (minutes + 1) = unsigned(SW) then -- measure
-					cnt_en <= '1';
-					powergating <= '1';
-					minutes <= minutes + 1;
-				elsif (minutes + 1) >= (unsigned(SW) + 1) then -- stop
-					cnt_en <= '0';
-					powergating <= '0';
-					minutes <= (others => '0');
+			if reset_time = '1' then -- reset after input capture
+				minutes <= (others => '0');
+				seconds <= (others => '0');
+			elsif sec_enable = '1' then
+				if seconds = to_unsigned(59,6) then -- 1 min
+					seconds <= (others => '0');
+					if minutes = to_unsigned(59,6) then -- 1 hour
+							-- hour <= hour + 1;
+							minutes <= (others => '0');
+					else 
+						minutes <= minutes + 1; -- counting minutes
+					end if;
 				else 
-					minutes <= minutes + 1; -- count
+					seconds <= seconds + 1; -- couting seconds
 				end if;
-			end if;	
+			end if;
 		end if;
 end process;
 
+-- Input capture control
+process(arstn, clk)
+	begin
+		if arstn = '0' then --reset
+			state <= IDLE;
+			powergating <= '0';
+			cnt_en <= '0';
+		elsif rising_edge(clk) then
+			if sec_enable = '1' then -- every second
+				case state is
+					when IDLE => -- waiting for right timing
+						reset_time <= '0';
+						if minutes = unsigned(SW(5 downto 0)) and seconds = 0 then
+							state <= RESET_PHASE;
+						end if;
+					when RESET_PHASE => -- input capture reset
+						powergating <= '1';
+						cnt_en <= '0';
+						state <= MEASURE;
+					when MEASURE => -- input capture measure
+						powergating <= '1';
+						cnt_en <= '1';
+						state <= STOP;
+					when STOP => -- input capture stop
+						cnt_en <= '0';
+						powergating <= '0';
+						state <= IDLE;
+						reset_time <= '1'; -- min and sec reset
+				end case;
+			end if;
+		end if;
+end process;
+
+-- display for debug
 output_min <= "000000" & std_logic_vector(minutes);
-output_sec <= "000000" & seconds;
+output_sec <= "000000" & std_logic_vector(seconds);
 
 end architecture; 
