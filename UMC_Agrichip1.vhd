@@ -11,7 +11,8 @@ entity UMC_Agrichip1 is
 	analog_in : in STD_LOGIC; 
 	frequency : out unsigned (15 downto 0);
    load : out std_logic;
-	output_sec : out std_logic_vector (11 downto 0)
+	output_sec : out std_logic_vector (11 downto 0);
+	output_min : out std_logic_vector (11 downto 0)
     );
 end UMC_Agrichip1;
 
@@ -24,7 +25,8 @@ component RTC_1M is
    SW : in std_logic_vector (9 downto 0);
 	powergating : out STD_LOGIC;
 	cnt_en : out STD_LOGIC;
-	output_sec : out std_logic_vector (11 downto 0)
+	output_sec : out std_logic_vector (11 downto 0);
+	output_min : out std_logic_vector (11 downto 0)
     );
 end component;
 
@@ -62,7 +64,7 @@ signal frequency_buff : unsigned(15 downto 0);
 begin
 
 
-rtc: RTC_1M port map (clk => clk, arstn => arstn, SW => SW, powergating=> power_gating, cnt_en=>cnten, output_sec => output_sec);
+rtc: RTC_1M port map (clk => clk, arstn => arstn, SW => SW, powergating=> power_gating, cnt_en=>cnten, output_sec => output_sec, output_min => output_min);
 
 extratimer: input_capture_timer port map (clk => clk , enable => cnten, arstn => arstn, analog_in => analog_in, clear => power_gating,  frequency=> frequency_buff );
 load <= not(power_gating);

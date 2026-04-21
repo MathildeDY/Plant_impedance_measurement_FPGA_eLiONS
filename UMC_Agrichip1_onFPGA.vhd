@@ -17,6 +17,7 @@ entity UMC_Agrichip1_onFPGA is
 	HEX4 : out std_logic_vector (0 to 6);
 	HEX3 : out std_logic_vector (0 to 6);
 	HEX2 : out std_logic_vector (0 to 6);
+	HEX1 : out std_logic_vector (0 to 6);
 	HEX0 : out  std_logic_vector (0 to 6)
     );
 end UMC_Agrichip1_onFPGA;
@@ -42,7 +43,8 @@ Port (
 	analog_in : in STD_LOGIC; 
 	frequency : out unsigned (15 downto 0);
         load : out std_logic;
-	output_sec : out std_logic_vector (11 downto 0)
+	output_sec : out std_logic_vector (11 downto 0);
+	output_min : out std_logic_vector (11 downto 0)
     );
 end component;
 
@@ -70,14 +72,15 @@ signal freq_MSB, freq_LSB : std_logic_vector (7 downto 0);
 signal freq : unsigned (15 downto 0);
 signal load_f : std_logic;
 signal display_sec : std_logic_vector (11 downto 0);
+signal display_min : std_logic_vector (11 downto 0);
 signal disp0 : std_logic_vector (0 to 6);
-signal disp2,disp3,disp4,disp5 : std_logic_vector (0 to 6);
+signal disp1,disp2,disp3,disp4,disp5 : std_logic_vector (0 to 6);
 signal clk : std_logic;
 signal rst_pll :std_logic;
 begin 
 
 PLL : myPLL_0002 port map (refclk => clk_in, rst=> rst_pll, outclk_0=>clk, locked =>lock);
-chip: UMC_Agrichip1 port map (SW => SW, clk => clk, arstn => arstn, analog_in => analog_in, load =>load_f, frequency => freq, output_sec => display_sec );
+chip: UMC_Agrichip1 port map (SW => SW, clk => clk, arstn => arstn, analog_in => analog_in, load =>load_f, frequency => freq, output_sec => display_sec, output_min => display_min);
 
 process(clk, arstn)
     begin 
@@ -99,12 +102,14 @@ display5: seven_segment_display port map (SW => freq_MSB(7 downto 4) , HEX0 => d
 display4: seven_segment_display port map (SW => freq_MSB(3 downto 0), HEX0 => disp4);
 display3: seven_segment_display port map (SW => freq_LSB( 7 downto 4), HEX0 => disp3);
 display2: seven_segment_display port map (SW => freq_LSB( 3 downto 0), HEX0 => disp2);
+display1: seven_segment_display port map (SW => display_min(3 downto 0), HEX0 => disp1);
 display0: seven_segment_display port map (SW => display_sec(3 downto 0), HEX0 => disp0);
 
 HEX5 <= disp5; 
 HEX4 <= disp4; 
 HEX3 <= disp3; 
 HEX2 <= disp2; 
+HEX1 <= disp1;
 HEX0 <= disp0;
 analog_out <= analog_in;
 end beh;
