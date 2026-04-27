@@ -11,6 +11,7 @@ entity UMC_Agrichip1 is
 	analog_in : in STD_LOGIC; 
 	frequency : out unsigned (15 downto 0);
    load : out std_logic;
+	powergating : out std_logic;
 	output_sec : out std_logic_vector (11 downto 0);
 	output_min : out std_logic_vector (11 downto 0)
     );
@@ -68,6 +69,7 @@ rtc: RTC_1M port map (clk => clk, arstn => arstn, SW => SW, powergating=> power_
 
 extratimer: input_capture_timer port map (clk => clk , enable => cnten, arstn => arstn, analog_in => analog_in, clear => power_gating,  frequency=> frequency_buff );
 load <= not(power_gating);
+powergating <= power_gating;
 frequency <= frequency_buff; 
 end architecture; 
 

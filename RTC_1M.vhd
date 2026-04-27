@@ -38,7 +38,7 @@ begin
 
 sec_count : one_sec_counter port map (arstn => arstn, clk => clk, en => sec_enable);
 
--- Compteur
+-- Counter
 process(arstn, clk)
 	begin
 		if arstn = '0' then --reset
@@ -76,7 +76,7 @@ process(arstn, clk)
 				case state is
 					when IDLE => -- waiting for right timing
 						reset_time <= '0';
-						if minutes = unsigned(SW(5 downto 0)) and seconds = 0 then
+						if minutes >= unsigned(SW(5 downto 0)) then
 							state <= RESET_PHASE;
 						end if;
 					when RESET_PHASE => -- input capture reset
