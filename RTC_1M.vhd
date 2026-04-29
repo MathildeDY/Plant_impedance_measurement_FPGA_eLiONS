@@ -28,7 +28,6 @@ end component;
 
 signal minutes : unsigned  (5 downto 0) := (others => '0');
 signal seconds : unsigned (5 downto 0) := (others => '0'); 
--- signal hour : std_logic (5 downto 0) := (others => '0');
 signal sec_enable : std_logic := '0';
 signal reset_time : std_logic := '0';
 type state_t is (IDLE, RESET_PHASE, MEASURE, STOP);
@@ -38,7 +37,7 @@ begin
 
 sec_count : one_sec_counter port map (arstn => arstn, clk => clk, en => sec_enable);
 
--- Counter
+-- Counters
 process(arstn, clk)
 	begin
 		if arstn = '0' then --reset
@@ -52,8 +51,8 @@ process(arstn, clk)
 				if seconds = to_unsigned(59,6) then -- 1 min
 					seconds <= (others => '0');
 					if minutes = to_unsigned(59,6) then -- 1 hour
-							-- hour <= hour + 1;
-							minutes <= (others => '0');
+						-- could continue to count
+						minutes <= (others => '0');
 					else 
 						minutes <= minutes + 1; -- counting minutes
 					end if;
@@ -63,6 +62,7 @@ process(arstn, clk)
 			end if;
 		end if;
 end process;
+
 
 -- Input capture control
 process(arstn, clk)
