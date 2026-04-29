@@ -72,6 +72,7 @@ end component;
 
 signal freq_MSB, freq_LSB : std_logic_vector (7 downto 0);
 signal freq : unsigned (15 downto 0);
+signal powergat : std_logic;
 signal load_f : std_logic;
 signal display_sec : std_logic_vector (11 downto 0);
 signal display_min : std_logic_vector (11 downto 0);
