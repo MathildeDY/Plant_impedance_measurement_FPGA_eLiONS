@@ -6,7 +6,7 @@ entity Agrichip1_TX is
 
 port(
 
-	byte0, byte1 : in std_logic_vector (7 downto 0);
+	bytes : in std_logic_vector (15 downto 0);
 	clk, arstn : in std_logic;
 	--wr_en      : in std_logic;
 	scl              : inout std_logic;
@@ -35,29 +35,28 @@ generic (
     clk              : in    std_logic;
     arstn            : in    std_logic;
    -- wr_en            : in      std_logic;
-    data_to_master   : in    std_logic_vector(7 downto 0);
-    byte_count : out std_logic_vector (0 downto 0) ); --my add, in order to select from the mux outside the right part of the 2 byte stem frequency's string
+    data_to_master   : in    std_logic_vector(15 downto 0) );
+    --byte_count : out std_logic_vector (0 downto 0) ); --my add, in order to select from the mux outside the right part of the 2 byte stem frequency's string
 end component; 
 
 
-component mux2to1_8bit is
-    Port ( 
-        -- input channels 
-        in0 : in std_logic_vector(7 downto 0);
-        in1 : in std_logic_vector(7 downto 0);
-        -- Selector 
-        sel : in std_logic_vector (0 downto 0);
-        -- output (8 bit)
-        data_to_master : out std_logic_vector(7 downto 0)
-    );
-end component; 
+--component mux2to1_8bit is
+--    Port ( 
+--        -- input channels 
+--        in0 : in std_logic_vector(7 downto 0);
+--        in1 : in std_logic_vector(7 downto 0);
+--        -- Selector 
+--        sel : in std_logic_vector (0 downto 0);
+--        -- output (8 bit)
+--        data_to_master : out std_logic_vector(7 downto 0)
+--    );
+--end component; 
 
-signal data_to_master   :    std_logic_vector(7 downto 0);
 signal sel : std_logic_vector (0 downto 0);
 
 begin
 
-mx: mux2to1_8bit port map (in0=> byte0, in1=>byte1, sel=>sel, data_to_master=>data_to_master );
-minion: my_slave port map (scl=>scl, sda=>sda, clk=> clk, arstn=>arstn, data_to_master=>data_to_master, byte_count=>sel);-- wr_en => wr_en
+--mx: mux2to1_8bit port map (in0=> byte0, in1=>byte1, sel=>sel, data_to_master=>data_to_master );
+minion: my_slave port map (scl=>scl, sda=>sda, clk=> clk, arstn=>arstn, data_to_master=> bytes);-- wr_en => wr_en
 
 end beh;

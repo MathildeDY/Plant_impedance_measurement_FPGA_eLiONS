@@ -29,11 +29,10 @@ entity my_slave is
    -- wr_en            : in      std_logic;
     -- User interface
    -- read_req         : out   std_logic; just an interface, not useful
-    data_to_master   : in    std_logic_vector(7 downto 0);
+    data_to_master   : in    std_logic_vector(15 downto 0)
    -- data_valid       : out   std_logic;  i want to delete the writing mode
-    byte_count : out std_logic_vector (0 downto 0) ); --my add, in order to select from the mux outside the right part of the 2 byte stem frequency's string
   --  data_from_master : out   std_logic_vector(7 downto 0)); i want to delete the writing mode    
-	 
+	);
 	 
 end entity my_slave;
 ------------------------------------------------------------
@@ -81,6 +80,7 @@ architecture arch of my_slave is
   -- User interface
   signal data_valid_reg     : std_logic                    := '0';
   signal read_req_reg       : std_logic                    := '0';
+  signal data_to_master_buf : std_logic_vector(15 downto 0) := (others => '0');
   signal data_to_master_reg : std_logic_vector(7 downto 0) := (others => '0');
   signal byte_read_count : unsigned (0 downto 0) := (others => '0'); --my add
   
@@ -147,9 +147,7 @@ begin
       if scl_internal = '1' and scl_prev_reg = '1' and
         sda_prev_reg = '1' and sda_internal = '0' then
         start_reg <= '1';
-        stop_reg  <= '0';
-		 
-		
+        stop_reg  <= '0';	
       end if;
 
       -- Detect I2C STOP condition
@@ -157,7 +155,6 @@ begin
         sda_prev_reg = '0' and sda_internal = '1' then
         start_reg <= '0';
         stop_reg  <= '1';
-	
       end if;
 
     end if;
@@ -183,8 +180,6 @@ begin
             state_reg          <= get_address_and_cmd;
             bits_processed_reg <= 0;
            byte_read_count <= (others =>'0'); -- my add
-		
-				
           end if;
 
         when get_address_and_cmd =>
@@ -205,7 +200,8 @@ begin
 				 
               if (cmd_reg = '1' ) then  -- issue read request and wr_en = '1'
                 read_req_reg       <= '1';
-                data_to_master_reg <= data_to_master;
+                data_to_master_buf <= data_to_master;
+					 data_to_master_reg <= data_to_master(15 downto 8); -- send MSB first
               end if;
             else
               assert false
@@ -268,7 +264,7 @@ begin
             elsif bits_processed_reg = 7 then
               state_reg          <= read_ack_start;
               bits_processed_reg <= 0;
-				  byte_read_count <= byte_read_count + 1; --my add
+              -- byte_read_count incremented in read_ack_start on ACK
             end if;
           end if;
 
@@ -282,12 +278,18 @@ begin
             if sda_internal = '1' then  -- nack = stop read
               continue_reg <= '0';
 				--  byte_read_count <= (others=>'0'); -- my add, mute for reading the value in the leds
-            else  -- ack = continue read       
+            else  -- ack = continue read
               continue_reg       <= '1';
-	   -- if wr_en = '1' then
-              read_req_reg       <= '1';  -- request reg byte
-              data_to_master_reg <= data_to_master;
-             -- end if; 
+              read_req_reg       <= '1';  -- request next byte
+              -- Increment here so selection and count update are atomic.
+              -- byte_read_count=0 means byte 0 (MSB) was just sent -> load LSB next.
+              -- byte_read_count=1 means byte 1 (LSB) was just sent -> wrap to MSB.
+              byte_read_count <= byte_read_count + 1;
+              if byte_read_count = 0 then
+                data_to_master_reg <= data_to_master_buf(7 downto 0);   -- LSB
+              else
+                data_to_master_reg <= data_to_master_buf(15 downto 8);  -- MSB (wrap)
+              end if;
             end if;
           end if;
 
@@ -351,5 +353,4 @@ begin
  -- data_from_master <= data_from_master_reg;
   -- Master reads
  -- read_req         <= read_req_reg;
-  byte_count <= std_logic_vector(byte_read_count); --my add
 end architecture arch;

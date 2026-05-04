@@ -10,8 +10,8 @@ entity UMC_Agrichip1_onFPGA is
    arstn   : in  STD_LOGIC;
 	analog_in : in STD_LOGIC; 
 	RO_CTL : out std_logic;
-   --scl              : inout std_logic;
-   --sda              : inout std_logic;
+   scl  : inout std_logic;
+	sda  : inout std_logic;
 	lock : out std_logic;
 	analog_out : out std_logic;
 	HEX5 : out std_logic_vector (0 to 6);
@@ -50,16 +50,16 @@ Port (
     );
 end component;
 
---component Agrichip1_TX is 
---port(
---
---	byte0, byte1 : in std_logic_vector (7 downto 0);
---	clk, arstn : in std_logic;
---	--wr_en      : in std_logic;
---	scl              : inout std_logic;
---    sda              : inout std_logic
---);
---end component;
+component Agrichip1_TX is 
+port(
+
+	bytes : in std_logic_vector (15 downto 0);
+	clk, arstn : in std_logic;
+	--wr_en      : in std_logic;
+	scl              : inout std_logic;
+    sda              : inout std_logic
+);
+end component;
 
 
 component seven_segment_display is 
@@ -71,6 +71,7 @@ end component;
 
 
 signal freq_MSB, freq_LSB : std_logic_vector (7 downto 0);
+signal pulses : std_logic_vector (15 downto 0);
 signal freq : unsigned (15 downto 0);
 signal powergat : std_logic;
 signal load_f : std_logic;
@@ -90,16 +91,18 @@ process(clk, arstn)
 if (arstn = '0') then
 freq_MSB <= (others=> '0');
 freq_LSB <= (others=> '0');
+pulses <= (others => '0');
  elsif (clk'event and clk = '1' and load_f = '1') then    
 freq_MSB <= std_logic_vector(freq(15 downto 8));
 freq_LSB <= std_logic_vector(freq(7 downto 0));
+pulses <= std_logic_vector(freq(15 downto 0));
 end if;
 
 end process;
 
 rst_pll <= not(arstn);
 
---TX: Agrichip1_TX port map (byte0 => freq_MSB, byte1=> freq_LSB, clk =>clk , arstn =>arstn, scl=> scl, sda =>sda); --wr_en => tx_enable
+TX: Agrichip1_TX port map (bytes => pulses, clk =>clk , arstn =>arstn, scl=> scl, sda =>sda); --wr_en => tx_enable
 
 display5: seven_segment_display port map (SW => freq_MSB(7 downto 4) , HEX0 => disp5);
 display4: seven_segment_display port map (SW => freq_MSB(3 downto 0), HEX0 => disp4);
