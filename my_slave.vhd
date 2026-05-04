@@ -1,10 +1,7 @@
 ------------------------------------------------------------
--- File      : myslave.vhd
+-- File      : my_slave.vhd
 ------------------------------------------------------------
 -- Author    : Vincenzo Giannone, from Peter Samarin <peter.samarin@gmail.com>
-------------------------------------------------------------
--- in this code I added the counting of the ACKs in case of multiple readings. To see the counts
--- incomment row 283 and upload again the code.   
 ------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;
@@ -22,17 +19,12 @@ entity my_slave is
     -- larger wait cycles increase the resource usage
     DEBOUNCING_WAIT_CYCLES : integer := 4);
   port (
-    scl              : inout std_logic;
-    sda              : inout std_logic;
-    clk              : in    std_logic;
-    arstn            : in    std_logic;
-   -- wr_en            : in      std_logic;
-    -- User interface
-   -- read_req         : out   std_logic; just an interface, not useful
-    data_to_master   : in    std_logic_vector(15 downto 0)
-   -- data_valid       : out   std_logic;  i want to delete the writing mode
-  --  data_from_master : out   std_logic_vector(7 downto 0)); i want to delete the writing mode    
-	);
+    scl            : inout std_logic;
+    sda            : inout std_logic;
+    clk            : in    std_logic;
+    arstn          : in    std_logic;
+    data_to_master : in    std_logic_vector(15 downto 0)
+  );
 	 
 end entity my_slave;
 ------------------------------------------------------------
@@ -47,8 +39,6 @@ architecture arch of my_slave is
   signal bits_processed_reg : integer range 0 to 8 := 0;
   signal continue_reg       : std_logic            := '0';
 
-  signal scl_reg       : std_logic := 'Z';
-  signal sda_reg       : std_logic := 'Z';
   signal scl_debounced : std_logic := 'Z';
   signal sda_debounced : std_logic := 'Z';
 
@@ -63,26 +53,19 @@ architecture arch of my_slave is
   signal scl_rising_reg  : std_logic := '0';
   signal scl_falling_reg : std_logic := '0';
 
-  -- Address and data received from master
-  signal addr_reg             : std_logic_vector(6 downto 0) := (others => '0');
-  signal data_reg             : std_logic_vector(6 downto 0) := (others => '0');
-  signal data_from_master_reg : std_logic_vector(7 downto 0) := (others => '0');
+  -- Address received from master
+  signal addr_reg : std_logic_vector(6 downto 0) := (others => '0');
 
   signal scl_prev_reg : std_logic := 'Z';
-  -- Minion writes on scl
-  signal scl_wen_reg  : std_logic := '0';
-  signal scl_o_reg    : std_logic := '0';  -- unused for now
   signal sda_prev_reg : std_logic := 'Z';
   -- Minion writes on sda
   signal sda_wen_reg  : std_logic := '0';
   signal sda_o_reg    : std_logic := '0';
 
-  -- User interface
-  signal data_valid_reg     : std_logic                    := '0';
-  signal read_req_reg       : std_logic                    := '0';
+  -- 16-bit data buffer and active byte register
   signal data_to_master_buf : std_logic_vector(15 downto 0) := (others => '0');
-  signal data_to_master_reg : std_logic_vector(7 downto 0) := (others => '0');
-  signal byte_read_count : unsigned (0 downto 0) := (others => '0'); --my add
+  signal data_to_master_reg : std_logic_vector(7 downto 0)  := (others => '0');
+  signal byte_read_count    : unsigned(0 downto 0)          := (others => '0');
   
 begin
 
@@ -167,11 +150,8 @@ begin
   begin
     if rising_edge(clk) then
       -- Default assignments
-      sda_o_reg      <= '0';
-      sda_wen_reg    <= '0';
-      -- User interface
-      data_valid_reg <= '0';
-      read_req_reg   <= '0';
+      sda_o_reg   <= '0';
+      sda_wen_reg <= '0';
 
       case state_reg is
 
@@ -179,7 +159,7 @@ begin
           if start_reg = '1' then
             state_reg          <= get_address_and_cmd;
             bits_processed_reg <= 0;
-           byte_read_count <= (others =>'0'); -- my add
+            byte_read_count    <= (others => '0');
           end if;
 
         when get_address_and_cmd =>
@@ -195,20 +175,17 @@ begin
 
           if bits_processed_reg = 8 and scl_falling_reg = '1' then
             bits_processed_reg <= 0;
-            if addr_reg = MINION_ADDR then  -- check req address
+            if addr_reg = MINION_ADDR then
               state_reg <= answer_ack_start;
-				 
-              if (cmd_reg = '1' ) then  -- issue read request and wr_en = '1'
-                read_req_reg       <= '1';
+              if cmd_reg = '1' then  -- read request: latch both bytes
                 data_to_master_buf <= data_to_master;
-					 data_to_master_reg <= data_to_master(15 downto 8); -- send MSB first
+                data_to_master_reg <= data_to_master(15 downto 8); -- MSB first
               end if;
             else
               assert false
-                report ("I2C: target/minion address mismatch (data is being sent to another minion).")
+                report ("I2C: address mismatch (data is being sent to another minion).")
                 severity note;
               state_reg <= idle;
-				
             end if;
           end if;
 
@@ -223,24 +200,13 @@ begin
               state_reg <= write;
             else
               state_reg <= read;
-				  
             end if;
           end if;
 
         ----------------------------------------------------
-        -- WRITE
+        -- WRITE (not used in read-only mode, kept for completeness)
         ----------------------------------------------------
         when write =>
-          if scl_rising_reg = '1' then
-            bits_processed_reg <= bits_processed_reg + 1;
-            if bits_processed_reg < 7 then                          
-              data_reg(6-bits_processed_reg) <= sda_internal;
-            else
-              data_from_master_reg <= data_reg & sda_internal;   --the last bit
-              data_valid_reg       <= '1';
-            end if;
-          end if;
-
           if scl_falling_reg = '1' and bits_processed_reg = 8 then
             state_reg          <= answer_ack_start;
             bits_processed_reg <= 0;
@@ -277,13 +243,11 @@ begin
             state_reg <= read_ack_got_rising;
             if sda_internal = '1' then  -- nack = stop read
               continue_reg <= '0';
-				--  byte_read_count <= (others=>'0'); -- my add, mute for reading the value in the leds
             else  -- ack = continue read
-              continue_reg       <= '1';
-              read_req_reg       <= '1';  -- request next byte
-              -- Increment here so selection and count update are atomic.
-              -- byte_read_count=0 means byte 0 (MSB) was just sent -> load LSB next.
-              -- byte_read_count=1 means byte 1 (LSB) was just sent -> wrap to MSB.
+              continue_reg <= '1';
+              -- Increment and select next byte atomically.
+              -- byte_read_count=0: MSB was just sent -> load LSB next.
+              -- byte_read_count=1: LSB was just sent -> wrap back to MSB.
               byte_read_count <= byte_read_count + 1;
               if byte_read_count = 0 then
                 data_to_master_reg <= data_to_master_buf(7 downto 0);   -- LSB
@@ -308,7 +272,7 @@ begin
 
         -- Wait for START or STOP to get out of this state
         when read_stop =>
-             byte_read_count <= (others=>'0'); -- my add oct 25
+          byte_read_count <= (others => '0');
           null;
 
         -- Wait for START or STOP to get out of this state
@@ -340,17 +304,10 @@ begin
 
   ----------------------------------------------------------
   -- I2C interface
+  -- SCL is input-only (slave never stretches the clock)
+  -- SDA is driven low by slave for ACK and data '0' bits
   ----------------------------------------------------------
-  sda <= sda_o_reg when sda_wen_reg = '1' else
-         'Z';
-  scl <= scl_o_reg when scl_wen_reg = '1' else
-         'Z';
-  ----------------------------------------------------------
-  -- User interface
-  ----------------------------------------------------------
-  -- Master writes
- -- data_valid       <= data_valid_reg;
- -- data_from_master <= data_from_master_reg;
-  -- Master reads
- -- read_req         <= read_req_reg;
+  sda <= sda_o_reg when sda_wen_reg = '1' else 'Z';
+  scl <= 'Z';
+
 end architecture arch;
