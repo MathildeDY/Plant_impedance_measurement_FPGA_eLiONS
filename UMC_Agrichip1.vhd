@@ -12,6 +12,7 @@ entity UMC_Agrichip1 is
 	frequency : out unsigned (15 downto 0);
    load : out std_logic;
 	powergating : out std_logic;
+	interrupt : out std_logic;
 	output_sec : out std_logic_vector (11 downto 0);
 	output_min : out std_logic_vector (11 downto 0)
     );
@@ -31,17 +32,6 @@ component RTC_1M is
     );
 end component;
 
---component UMC_timer is
---Port (
---	analog_in : in STD_LOGIC;
-	--clk: in STD_LOGIC; 
-     --   arstn   : in  STD_LOGIC;
---	en : in std_logic;
---	clear : in std_logic;
-	--frequency : out unsigned (15 downto 0)
-   -- );
---end component;
-
 component input_capture_timer
 generic (
 	   N : integer  := 16  -- Timer parallelism     
@@ -52,7 +42,8 @@ port (     clk     : in  STD_LOGIC;
            arstn   : in  STD_LOGIC;           
            analog_in : in  STD_LOGIC;  
 			  clear : in std_logic;
-           frequency  : out unsigned (N-1 downto 0)  
+           frequency  : out unsigned (N-1 downto 0);
+			  powergating : out std_logic
 			  
       );
 end component;
@@ -67,7 +58,7 @@ begin
 
 rtc: RTC_1M port map (clk => clk, arstn => arstn, SW => SW, powergating=> power_gating, cnt_en=>cnten, output_sec => output_sec, output_min => output_min);
 
-extratimer: input_capture_timer port map (clk => clk , enable => cnten, arstn => arstn, analog_in => analog_in, clear => power_gating,  frequency=> frequency_buff );
+extratimer: input_capture_timer port map (clk => clk , enable => cnten, arstn => arstn, analog_in => analog_in, clear => power_gating, powergating => interrupt,  frequency=> frequency_buff );
 load <= not(power_gating);
 powergating <= power_gating;
 frequency <= frequency_buff; 

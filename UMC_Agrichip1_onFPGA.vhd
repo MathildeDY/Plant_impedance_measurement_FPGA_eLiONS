@@ -13,6 +13,7 @@ entity UMC_Agrichip1_onFPGA is
    scl  : inout std_logic;
 	sda  : inout std_logic;
 	lock : out std_logic;
+	IRQ  : out std_logic;
 	analog_out : out std_logic;
 	HEX5 : out std_logic_vector (0 to 6);
 	HEX4 : out std_logic_vector (0 to 6);
@@ -46,6 +47,7 @@ Port (
         load : out std_logic;
    powergating : out std_logic;
 	output_sec : out std_logic_vector (11 downto 0);
+	interrupt : out std_logic;
 	output_min : out std_logic_vector (11 downto 0)
     );
 end component;
@@ -84,7 +86,7 @@ signal rst_pll :std_logic;
 begin 
 
 PLL : myPLL_0002 port map (refclk => clk_in, rst=> rst_pll, outclk_0=>clk, locked =>lock);
-chip: UMC_Agrichip1 port map (SW => SW, clk => clk, arstn => arstn, analog_in => analog_in, powergating => RO_CTL, load =>load_f, frequency => freq, output_sec => display_sec, output_min => display_min);
+chip: UMC_Agrichip1 port map (SW => SW, clk => clk, arstn => arstn, analog_in => analog_in, powergating => RO_CTL, load =>load_f, frequency => freq, interrupt => IRQ, output_sec => display_sec, output_min => display_min);
 
 process(clk, arstn)
     begin 

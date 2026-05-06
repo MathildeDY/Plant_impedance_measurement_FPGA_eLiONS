@@ -204,7 +204,7 @@ begin
           end if;
 
         ----------------------------------------------------
-        -- WRITE (not used in read-only mode, kept for completeness)
+        -- WRITE
         ----------------------------------------------------
         when write =>
           if scl_falling_reg = '1' and bits_processed_reg = 8 then
