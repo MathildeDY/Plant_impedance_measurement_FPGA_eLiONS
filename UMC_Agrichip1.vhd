@@ -6,7 +6,7 @@ use IEEE.NUMERIC_STD.ALL;
 entity UMC_Agrichip1 is
     Port (
 	clk: in STD_LOGIC; 
-        arstn   : in  STD_LOGIC;
+   arstn   : in  STD_LOGIC;
    SW : in std_logic_vector (9 downto 0);
 	analog_in : in STD_LOGIC; 
 	frequency : out unsigned (15 downto 0);
@@ -50,17 +50,16 @@ end component;
 
 signal cnten, power_gating : std_logic; 
 signal frequency_buff : unsigned(15 downto 0); 
-
-
+signal interrupt_buff : std_logic;
 
 begin
 
-
 rtc: RTC_1M port map (clk => clk, arstn => arstn, SW => SW, powergating=> power_gating, cnt_en=>cnten, output_sec => output_sec, output_min => output_min);
 
-extratimer: input_capture_timer port map (clk => clk , enable => cnten, arstn => arstn, analog_in => analog_in, clear => power_gating, interrupt => interrupt,  frequency=> frequency_buff );
+extratimer: input_capture_timer port map (clk => clk , enable => cnten, arstn => arstn, analog_in => analog_in, clear => power_gating, interrupt => interrupt_buff,  frequency=> frequency_buff );
 load <= not(power_gating);
 powergating <= power_gating;
 frequency <= frequency_buff; 
+interrupt <= interrupt_buff;
 end architecture; 
 

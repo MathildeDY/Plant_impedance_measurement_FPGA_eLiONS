@@ -17,22 +17,14 @@ port (     clk     : in  STD_LOGIC;
            frequency  : out unsigned (N-1 downto 0)  
       );
 
-
-
 end input_capture_timer; 
 
-
-
-
 architecture beh of input_capture_timer is 
-
-
 
 signal counter, acquisition_1, acquisition_2, ticks : unsigned (N-1 downto 0);
 signal prev_signal : std_logic;
 signal max : unsigned (N-1 downto 0) := (others => '1'); 
 signal min : unsigned (N-1 downto 0) := (others => '0');
---signal fclk : unsigned(N-1 downto 0) := to_unsigned(1171875, N);
 begin
 
 process(clk, arstn)
@@ -50,14 +42,11 @@ process(clk, arstn)
 		if (enable = '1') then			-- if enable is active
 			counter <= counter + 1;  	-- the timer counts
 		
-		
- 
 			if (prev_signal = not(analog_in) and analog_in = '0') then   --  if there is a falling edge..
 				acquisition_1 <= acquisition_2;                      -- we capture the two acquisitions ..
 				acquisition_2 <= counter; 
 			end if ; 
 			prev_signal <= analog_in; 
-		
 
 			if (acquisition_1 /= min and acquisition_2 /= min) then      -- if we filled both the acquisitions, we can compute 				if (acquisition_2 > acquisition_1 ) then -- no overflow
 					ticks <= acquisition_2 - acquisition_1;

@@ -84,6 +84,7 @@ signal disp0 : std_logic_vector (0 to 6);
 signal disp1,disp2,disp3,disp4,disp5 : std_logic_vector (0 to 6);
 signal clk : std_logic;
 signal rst_pll :std_logic;
+signal irq_reg   : std_logic := '0';  -- registered IRQ, cleared after I2C read
 begin 
 
 PLL : myPLL_0002 port map (refclk => clk_in, rst=> rst_pll, outclk_0=>clk, locked =>lock);
@@ -95,10 +96,15 @@ if (arstn = '0') then
 freq_MSB <= (others=> '0');
 freq_LSB <= (others=> '0');
 pulses <= (others => '0');
- elsif (clk'event and clk = '1' and load_f = '1') then    
-freq_MSB <= std_logic_vector(freq(15 downto 8));
-freq_LSB <= std_logic_vector(freq(7 downto 0));
-pulses <= std_logic_vector(freq(15 downto 0));
+elsif rising_edge(clk) then
+    if send_data = '1' and load_f = '1' then -- Input capture off
+        pulses   <= std_logic_vector(freq);
+        freq_MSB <= std_logic_vector(freq(15 downto 8));
+        freq_LSB <= std_logic_vector(freq(7 downto 0));
+        irq_reg  <= '1';
+    elsif load_f = '0' then   -- new measure → clear IRQ
+        irq_reg <= '0';
+    end if;
 end if;
 
 end process;
@@ -121,6 +127,5 @@ HEX2 <= disp2;
 HEX1 <= disp1;
 HEX0 <= disp0;
 analog_out <= analog_in;
-IRQ <= send_data;
-
+IRQ <= irq_reg;
 end beh;
