@@ -43,7 +43,7 @@ port (     clk     : in  STD_LOGIC;
            analog_in : in  STD_LOGIC;  
 			  clear : in std_logic;
            frequency  : out unsigned (N-1 downto 0);
-			  powergating : out std_logic
+			  interrupt : out std_logic
 			  
       );
 end component;
@@ -58,7 +58,7 @@ begin
 
 rtc: RTC_1M port map (clk => clk, arstn => arstn, SW => SW, powergating=> power_gating, cnt_en=>cnten, output_sec => output_sec, output_min => output_min);
 
-extratimer: input_capture_timer port map (clk => clk , enable => cnten, arstn => arstn, analog_in => analog_in, clear => power_gating, powergating => interrupt,  frequency=> frequency_buff );
+extratimer: input_capture_timer port map (clk => clk , enable => cnten, arstn => arstn, analog_in => analog_in, clear => power_gating, interrupt => interrupt,  frequency=> frequency_buff );
 load <= not(power_gating);
 powergating <= power_gating;
 frequency <= frequency_buff; 

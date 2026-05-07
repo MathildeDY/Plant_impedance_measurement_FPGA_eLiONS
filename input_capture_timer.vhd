@@ -13,7 +13,7 @@ port (     clk     : in  STD_LOGIC;
            arstn   : in  STD_LOGIC;           
            analog_in : in  STD_LOGIC;  
 			  clear : in std_logic;
-			  powergating : out std_logic;
+			  interrupt : out std_logic;
            frequency  : out unsigned (N-1 downto 0)  
       );
 
@@ -43,7 +43,7 @@ process(clk, arstn)
 	    acquisition_1 <= (others=> '0');
 	    acquisition_2 <= (others=> '0');
 				frequency <= (others=> '0');
-				powergating <= '0';
+				interrupt <= '0';
 
         elsif (clk'event and clk = '1') then             -- at each clock rising edge
 	
@@ -62,12 +62,12 @@ process(clk, arstn)
 			if (acquisition_1 /= min and acquisition_2 /= min) then      -- if we filled both the acquisitions, we can compute 				if (acquisition_2 > acquisition_1 ) then -- no overflow
 					ticks <= acquisition_2 - acquisition_1;
 					frequency <= ticks; --fclk / ticks;
-					powergating <= '1';
+					interrupt <= '1';
 
 				elsif (acquisition_2 < acquisition_1) then -- with overflow
 					ticks <= acquisition_2 + max - acquisition_1;
 					frequency <= ticks; --fclk / ticks;
-					powergating <= '1';
+					interrupt <= '1';
 			end if;
 		elsif (enable = '0' and clear = '1' ) then
 	    counter  <= (others=> '0');
@@ -75,7 +75,7 @@ process(clk, arstn)
 	    acquisition_1 <= (others=> '0');
 	    acquisition_2 <= (others=> '0');
        frequency <= (others=> '0'); 
-		 powergating <= '0';
+		 interrupt <= '0';
 		end if; 
 		
 		

@@ -21,6 +21,7 @@ entity my_slave is
   port (
     scl            : inout std_logic;
     sda            : inout std_logic;
+	 wr_en			 : in 	std_logic;
     clk            : in    std_logic;
     arstn          : in    std_logic;
     data_to_master : in    std_logic_vector(15 downto 0)
@@ -66,6 +67,8 @@ architecture arch of my_slave is
   signal data_to_master_buf : std_logic_vector(15 downto 0) := (others => '0');
   signal data_to_master_reg : std_logic_vector(7 downto 0)  := (others => '0');
   signal byte_read_count    : unsigned(0 downto 0)          := (others => '0');
+  
+  signal wr_en_latched : std_logic := '0'; -- enable
   
 begin
 
@@ -160,6 +163,7 @@ begin
             state_reg          <= get_address_and_cmd;
             bits_processed_reg <= 0;
             byte_read_count    <= (others => '0');
+				wr_en_latched      <= wr_en;  -- capture here, before pulse disappears
           end if;
 
         when get_address_and_cmd =>
@@ -193,14 +197,21 @@ begin
         -- I2C acknowledge to master
         ----------------------------------------------------
         when answer_ack_start =>
-          sda_wen_reg <= '1';
-          sda_o_reg   <= '0';
+			 if wr_en_latched = '1' then
+				 sda_wen_reg <= '1';
+				 sda_o_reg   <= '0';
+			 end if;
+			 -- if wr_en = '0': sda stays 'Z' = NACK, master sees no slave
           if scl_falling_reg = '1' then
-            if cmd_reg = '0' then
-              state_reg <= write;
-            else
-              state_reg <= read;
-            end if;
+				if wr_en_latched = '1' then
+					if cmd_reg = '0' then
+					  state_reg <= write;
+					else
+					  state_reg <= read;
+					end if;
+				else
+					state_reg <= idle;
+				end if;
           end if;
 
         ----------------------------------------------------
@@ -273,6 +284,7 @@ begin
         -- Wait for START or STOP to get out of this state
         when read_stop =>
           byte_read_count <= (others => '0');
+			 wr_en_latched   <= '0';  -- AJOUT: clear ici
           null;
 
         -- Wait for START or STOP to get out of this state
@@ -294,10 +306,12 @@ begin
       if stop_reg = '1' then
         state_reg          <= idle;
         bits_processed_reg <= 0;
+		  wr_en_latched   <= '0';  -- AJOUT: clear ici
       end if;
 
       if arstn = '0' then  -- i flipped the bit
         state_reg <= idle;
+		  wr_en_latched <= '0';
       end if;
     end if;
   end process;
