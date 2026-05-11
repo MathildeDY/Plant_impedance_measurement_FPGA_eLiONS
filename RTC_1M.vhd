@@ -8,7 +8,8 @@ entity RTC_1M is
 	Port (
 		clk: in STD_LOGIC; 
 		arstn   : in  STD_LOGIC;	  
-		SW : in STD_LOGIC_VECTOR (9 downto 0);
+		period : in STD_LOGIC_VECTOR (5 downto 0); -- amount of time (hours) between every measure
+		data_valid : in std_logic;
 		powergating : out STD_LOGIC;
 		cnt_en : out STD_LOGIC;
 		output_sec : out std_logic_vector (11 downto 0);
@@ -27,6 +28,8 @@ component one_sec_counter is
 end component;
 
 signal minutes : unsigned  (5 downto 0) := (others => '0');
+signal wait_time : unsigned (5 downto 0);
+signal hours : unsigned (5 downto 0) := (others => '0');
 signal seconds : unsigned (5 downto 0) := (others => '0'); 
 signal sec_enable : std_logic := '0';
 signal reset_time : std_logic := '0';
@@ -43,16 +46,19 @@ process(arstn, clk)
 		if arstn = '0' then --reset
 			minutes <= (others => '0');
 			seconds <= (others => '0');
+			hours <= (others => '0');
 		elsif rising_edge(clk) then
 			if reset_time = '1' then -- reset after input capture
 				minutes <= (others => '0');
 				seconds <= (others => '0');
+				hours <= (others => '0');
 			elsif sec_enable = '1' then
 				if seconds = to_unsigned(59,6) then -- 1 min
 					seconds <= (others => '0');
 					if minutes = to_unsigned(59,6) then -- 1 hour
-						-- could continue to count
 						minutes <= (others => '0');
+						-- increase hours or minutes depending on how we want the time unit be set on the uc
+						hours <= hours + 1;
 					else 
 						minutes <= minutes + 1; -- counting minutes
 					end if;
@@ -76,9 +82,17 @@ process(arstn, clk)
 				case state is
 					when IDLE => -- waiting for right timing
 						reset_time <= '0';
-						if minutes >= unsigned(SW(5 downto 0)) then
+						if data_valid = '0' then
+							wait_time <= to_unsigned(1,6); -- Default waiting time 1 min (for testing, change later)
+						else
+							wait_time <= unsigned(period);
+						end if;
+						if minutes >= wait_time then -- counts minutes only for testing
 							state <= RESET_PHASE;
 						end if;
+--						if hours >= unsigned(period) then
+--							state <= RESET_PHASE;
+--						end if;
 					when RESET_PHASE => -- input capture reset
 						powergating <= '1';
 						cnt_en <= '0';

@@ -7,7 +7,8 @@ entity UMC_Agrichip1 is
     Port (
 	clk: in STD_LOGIC; 
    arstn   : in  STD_LOGIC;
-   SW : in std_logic_vector (9 downto 0);
+   measure_period : in std_logic_vector (5 downto 0);
+	valid_data : in std_logic;
 	analog_in : in STD_LOGIC; 
 	frequency : out unsigned (15 downto 0);
    load : out std_logic;
@@ -24,7 +25,8 @@ component RTC_1M is
     Port (
 	clk: in STD_LOGIC; 
    arstn   : in  STD_LOGIC;
-   SW : in std_logic_vector (9 downto 0);
+   period : in std_logic_vector (5 downto 0);
+	data_valid : in std_logic;
 	powergating : out STD_LOGIC;
 	cnt_en : out STD_LOGIC;
 	output_sec : out std_logic_vector (11 downto 0);
@@ -54,7 +56,7 @@ signal interrupt_buff : std_logic;
 
 begin
 
-rtc: RTC_1M port map (clk => clk, arstn => arstn, SW => SW, powergating=> power_gating, cnt_en=>cnten, output_sec => output_sec, output_min => output_min);
+rtc: RTC_1M port map (clk => clk, arstn => arstn, period => measure_period(5 downto 0), data_valid => valid_data, powergating=> power_gating, cnt_en=>cnten, output_sec => output_sec, output_min => output_min);
 
 extratimer: input_capture_timer port map (clk => clk , enable => cnten, arstn => arstn, analog_in => analog_in, clear => power_gating, interrupt => interrupt_buff,  frequency=> frequency_buff );
 load <= not(power_gating);

@@ -6,11 +6,12 @@ entity Agrichip1_TX is
 
 port(
 
-	bytes : in std_logic_vector (15 downto 0);
+	bytes 	  : in std_logic_vector (15 downto 0);
+	data_valid : out std_logic;
+	period_out : out std_logic_vector(7 downto 0);
 	clk, arstn : in std_logic;
-	wr_en      : in std_logic;
-	scl              : inout std_logic;
-    	sda              : inout std_logic
+	scl        : inout std_logic;
+   sda        : inout std_logic
 );
 
 end Agrichip1_TX ;
@@ -32,14 +33,15 @@ generic (
   port (
     scl              : inout std_logic;
     sda              : inout std_logic;
+	 period_out		   : out std_logic_vector(7 downto 0);
+	 data_valid			: out std_logic;
     clk              : in    std_logic;
     arstn            : in    std_logic;
-    wr_en            : in      std_logic;
     data_to_master   : in    std_logic_vector(15 downto 0) );
 end component; 
 
 begin
 
-minion: my_slave port map (scl=>scl, sda=>sda, clk=> clk, arstn=>arstn, wr_en => wr_en, data_to_master=> bytes);-- wr_en => wr_en
+minion: my_slave port map (scl=>scl, sda=>sda, clk=> clk, period_out => period_out, data_valid => data_valid, arstn=>arstn, data_to_master=> bytes);-- wr_en => wr_en
 
 end beh;

@@ -66,9 +66,7 @@ process(clk, arstn)
        frequency <= (others=> '0'); 
 		 interrupt <= '0';
 		end if; 
-		
-		
-		        
+		    
         end if;
 	
     end process; 

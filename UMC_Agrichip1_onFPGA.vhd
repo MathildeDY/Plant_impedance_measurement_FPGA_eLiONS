@@ -5,7 +5,6 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity UMC_Agrichip1_onFPGA is
     Port (
-	SW : in std_logic_vector (9 downto 0);
 	clk_in: in STD_LOGIC; 
    arstn   : in  STD_LOGIC;
 	analog_in : in STD_LOGIC; 
@@ -41,7 +40,8 @@ component UMC_Agrichip1 is
 Port (
 	clk: in STD_LOGIC; 
         arstn   : in  STD_LOGIC;
-   SW : in std_logic_vector (9 downto 0);
+   measure_period : in std_logic_vector (5 downto 0);
+	valid_data : in std_logic;
 	analog_in : in STD_LOGIC; 
 	frequency : out unsigned (15 downto 0);
         load : out std_logic;
@@ -57,9 +57,10 @@ port(
 
 	bytes : in std_logic_vector (15 downto 0);
 	clk, arstn : in std_logic;
-	wr_en      : in std_logic;
+	data_valid 		  : out std_logic;
+	period_out		  : out std_logic_vector(7 downto 0);
 	scl              : inout std_logic;
-    sda              : inout std_logic
+   sda              : inout std_logic
 );
 end component;
 
@@ -73,7 +74,9 @@ end component;
 
 
 signal freq_MSB, freq_LSB : std_logic_vector (7 downto 0);
+signal measurement_period : std_logic_vector (7 downto 0);
 signal pulses : std_logic_vector (15 downto 0);
+signal valid_period : std_logic;
 signal freq : unsigned (15 downto 0);
 signal powergat : std_logic;
 signal send_data : std_logic := '0';
@@ -88,7 +91,7 @@ signal irq_reg   : std_logic := '0';  -- registered IRQ, cleared after I2C read
 begin 
 
 PLL : myPLL_0002 port map (refclk => clk_in, rst=> rst_pll, outclk_0=>clk, locked =>lock);
-chip: UMC_Agrichip1 port map (SW => SW, clk => clk, arstn => arstn, analog_in => analog_in, powergating => RO_CTL, load =>load_f, frequency => freq, interrupt => send_data, output_sec => display_sec, output_min => display_min);
+chip: UMC_Agrichip1 port map (clk => clk, arstn => arstn, measure_period => measurement_period(5 downto 0), valid_data => valid_period, analog_in => analog_in, powergating => RO_CTL, load =>load_f, frequency => freq, interrupt => send_data, output_sec => display_sec, output_min => display_min);
 
 process(clk, arstn)
     begin 
@@ -111,7 +114,7 @@ end process;
 
 rst_pll <= not(arstn);
 
-TX: Agrichip1_TX port map (bytes => pulses, clk =>clk , wr_en => send_data, arstn =>arstn, scl=> scl, sda =>sda); --wr_en => tx_enable
+TX: Agrichip1_TX port map (bytes => pulses, clk =>clk, data_valid => valid_period, period_out => measurement_period, arstn =>arstn, scl=> scl, sda =>sda); --wr_en => tx_enable
 
 display5: seven_segment_display port map (SW => freq_MSB(7 downto 4) , HEX0 => disp5);
 display4: seven_segment_display port map (SW => freq_MSB(3 downto 0), HEX0 => disp4);
