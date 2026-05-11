@@ -5,7 +5,6 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity UMC_Agrichip1_onFPGA is
     Port (
-	SW : in std_logic_vector (9 downto 0);
 	clk_in: in STD_LOGIC; 
    arstn   : in  STD_LOGIC;
 	analog_in : in STD_LOGIC; 
@@ -13,6 +12,7 @@ entity UMC_Agrichip1_onFPGA is
    scl  : inout std_logic;
 	sda  : inout std_logic;
 	lock : out std_logic;
+	IRQ  : out std_logic;
 	analog_out : out std_logic;
 	HEX5 : out std_logic_vector (0 to 6);
 	HEX4 : out std_logic_vector (0 to 6);
@@ -40,12 +40,14 @@ component UMC_Agrichip1 is
 Port (
 	clk: in STD_LOGIC; 
         arstn   : in  STD_LOGIC;
-   SW : in std_logic_vector (9 downto 0);
+   measure_period : in std_logic_vector (5 downto 0);
+	valid_data : in std_logic;
 	analog_in : in STD_LOGIC; 
 	frequency : out unsigned (15 downto 0);
         load : out std_logic;
    powergating : out std_logic;
 	output_sec : out std_logic_vector (11 downto 0);
+	interrupt : out std_logic;
 	output_min : out std_logic_vector (11 downto 0)
     );
 end component;
@@ -55,9 +57,10 @@ port(
 
 	bytes : in std_logic_vector (15 downto 0);
 	clk, arstn : in std_logic;
-	--wr_en      : in std_logic;
+	data_valid 		  : out std_logic;
+	period_out		  : out std_logic_vector(7 downto 0);
 	scl              : inout std_logic;
-    sda              : inout std_logic
+   sda              : inout std_logic
 );
 end component;
 
@@ -71,9 +74,12 @@ end component;
 
 
 signal freq_MSB, freq_LSB : std_logic_vector (7 downto 0);
+signal measurement_period : std_logic_vector (7 downto 0);
 signal pulses : std_logic_vector (15 downto 0);
+signal valid_period : std_logic;
 signal freq : unsigned (15 downto 0);
 signal powergat : std_logic;
+signal send_data : std_logic := '0';
 signal load_f : std_logic;
 signal display_sec : std_logic_vector (11 downto 0);
 signal display_min : std_logic_vector (11 downto 0);
@@ -81,10 +87,11 @@ signal disp0 : std_logic_vector (0 to 6);
 signal disp1,disp2,disp3,disp4,disp5 : std_logic_vector (0 to 6);
 signal clk : std_logic;
 signal rst_pll :std_logic;
+signal irq_reg   : std_logic := '0';  -- registered IRQ, cleared after I2C read
 begin 
 
 PLL : myPLL_0002 port map (refclk => clk_in, rst=> rst_pll, outclk_0=>clk, locked =>lock);
-chip: UMC_Agrichip1 port map (SW => SW, clk => clk, arstn => arstn, analog_in => analog_in, powergating => RO_CTL, load =>load_f, frequency => freq, output_sec => display_sec, output_min => display_min);
+chip: UMC_Agrichip1 port map (clk => clk, arstn => arstn, measure_period => measurement_period(5 downto 0), valid_data => valid_period, analog_in => analog_in, powergating => RO_CTL, load =>load_f, frequency => freq, interrupt => send_data, output_sec => display_sec, output_min => display_min);
 
 process(clk, arstn)
     begin 
@@ -92,17 +99,22 @@ if (arstn = '0') then
 freq_MSB <= (others=> '0');
 freq_LSB <= (others=> '0');
 pulses <= (others => '0');
- elsif (clk'event and clk = '1' and load_f = '1') then    
-freq_MSB <= std_logic_vector(freq(15 downto 8));
-freq_LSB <= std_logic_vector(freq(7 downto 0));
-pulses <= std_logic_vector(freq(15 downto 0));
+elsif rising_edge(clk) then
+    if send_data = '1' and load_f = '1' then -- Input capture off
+        pulses   <= std_logic_vector(freq);
+        freq_MSB <= std_logic_vector(freq(15 downto 8));
+        freq_LSB <= std_logic_vector(freq(7 downto 0));
+        irq_reg  <= '1';
+    elsif load_f = '0' then   -- new measure → clear IRQ
+        irq_reg <= '0';
+    end if;
 end if;
 
 end process;
 
 rst_pll <= not(arstn);
 
-TX: Agrichip1_TX port map (bytes => pulses, clk =>clk , arstn =>arstn, scl=> scl, sda =>sda); --wr_en => tx_enable
+TX: Agrichip1_TX port map (bytes => pulses, clk =>clk, data_valid => valid_period, period_out => measurement_period, arstn =>arstn, scl=> scl, sda =>sda); --wr_en => tx_enable
 
 display5: seven_segment_display port map (SW => freq_MSB(7 downto 4) , HEX0 => disp5);
 display4: seven_segment_display port map (SW => freq_MSB(3 downto 0), HEX0 => disp4);
@@ -118,5 +130,5 @@ HEX2 <= disp2;
 HEX1 <= disp1;
 HEX0 <= disp0;
 analog_out <= analog_in;
---analog_out <= freq(0);
+IRQ <= irq_reg;
 end beh;

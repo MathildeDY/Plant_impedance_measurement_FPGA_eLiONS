@@ -21,6 +21,8 @@ entity my_slave is
   port (
     scl            : inout std_logic;
     sda            : inout std_logic;
+	 period_out		 : out 	std_logic_vector(7 downto 0);
+	 data_valid 	 : out 	std_logic;
     clk            : in    std_logic;
     arstn          : in    std_logic;
     data_to_master : in    std_logic_vector(15 downto 0)
@@ -58,10 +60,15 @@ architecture arch of my_slave is
 
   signal scl_prev_reg : std_logic := 'Z';
   signal sda_prev_reg : std_logic := 'Z';
+  
   -- Minion writes on sda
   signal sda_wen_reg  : std_logic := '0';
   signal sda_o_reg    : std_logic := '0';
-
+  
+  -- for period received from master
+   signal data_reg   : std_logic_vector(6 downto 0) := (others => '0');
+	signal period_reg : std_logic_vector(7 downto 0) := (others => '0');
+	
   -- 16-bit data buffer and active byte register
   signal data_to_master_buf : std_logic_vector(15 downto 0) := (others => '0');
   signal data_to_master_reg : std_logic_vector(7 downto 0)  := (others => '0');
@@ -193,24 +200,33 @@ begin
         -- I2C acknowledge to master
         ----------------------------------------------------
         when answer_ack_start =>
-          sda_wen_reg <= '1';
-          sda_o_reg   <= '0';
+			 sda_wen_reg <= '1';
+			 sda_o_reg   <= '0';
           if scl_falling_reg = '1' then
-            if cmd_reg = '0' then
-              state_reg <= write;
-            else
-              state_reg <= read;
-            end if;
+				if cmd_reg = '0' then
+				  state_reg <= write;
+				else
+				  state_reg <= read;
+				end if;
           end if;
 
         ----------------------------------------------------
-        -- WRITE (not used in read-only mode, kept for completeness)
+        -- WRITE : receive period from master
         ----------------------------------------------------
-        when write =>
-          if scl_falling_reg = '1' and bits_processed_reg = 8 then
-            state_reg          <= answer_ack_start;
-            bits_processed_reg <= 0;
-          end if;
+			when write =>
+				 if scl_rising_reg = '1' then
+					  bits_processed_reg <= bits_processed_reg + 1;
+					  if bits_processed_reg < 7 then
+							data_reg(6 - bits_processed_reg) <= sda_internal;
+					  else
+							period_reg <= data_reg & sda_internal;  -- fully received
+							data_valid <= '1';
+					  end if;
+				 end if;
+				 if scl_falling_reg = '1' and bits_processed_reg = 8 then
+					  state_reg          <= answer_ack_start;
+					  bits_processed_reg <= 0;
+				 end if;
 
         ----------------------------------------------------
         -- READ: send data to master
@@ -230,7 +246,6 @@ begin
             elsif bits_processed_reg = 7 then
               state_reg          <= read_ack_start;
               bits_processed_reg <= 0;
-              -- byte_read_count incremented in read_ack_start on ACK
             end if;
           end if;
 
@@ -309,5 +324,6 @@ begin
   ----------------------------------------------------------
   sda <= sda_o_reg when sda_wen_reg = '1' else 'Z';
   scl <= 'Z';
+  period_out <= period_reg;
 
 end architecture arch;
