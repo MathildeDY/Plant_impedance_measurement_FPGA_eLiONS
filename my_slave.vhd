@@ -313,6 +313,7 @@ begin
 
       if arstn = '0' then  -- i flipped the bit
         state_reg <= idle;
+		  data_valid <= '0';
       end if;
     end if;
   end process;
