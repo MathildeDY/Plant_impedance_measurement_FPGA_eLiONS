@@ -83,7 +83,7 @@ process(arstn, clk)
 					when IDLE => -- waiting for right timing
 						reset_time <= '0';
 						if data_valid = '0' then
-							wait_time <= to_unsigned(5,6); -- Default waiting time 5 min (for testing, change later)
+							wait_time <= to_unsigned(1,6); -- Default waiting time 1 min (for testing, change later)
 						else
 							wait_time <= unsigned(period);
 						end if;

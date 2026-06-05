@@ -8,6 +8,7 @@ entity UMC_Agrichip1_onFPGA is
 	clk_in: in STD_LOGIC; 
    arstn   : in  STD_LOGIC;
 	analog_in : in STD_LOGIC; 
+	STM_powergating : in STD_LOGIC;
 	RO_CTL : out std_logic;
    scl  : inout std_logic;
 	sda  : inout std_logic;
@@ -79,6 +80,7 @@ signal pulses : std_logic_vector (15 downto 0);
 signal valid_period : std_logic;
 signal freq : unsigned (15 downto 0);
 signal powergat : std_logic;
+signal fpga_powergating : std_logic;
 signal send_data : std_logic := '0';
 signal load_f : std_logic;
 signal display_sec : std_logic_vector (11 downto 0);
@@ -91,7 +93,7 @@ signal irq_reg   : std_logic := '0';  -- registered IRQ, cleared after I2C read
 begin 
 
 PLL : myPLL_0002 port map (refclk => clk_in, rst=> rst_pll, outclk_0=>clk, locked =>lock);
-chip: UMC_Agrichip1 port map (clk => clk, arstn => arstn, measure_period => measurement_period(5 downto 0), valid_data => valid_period, analog_in => analog_in, powergating => RO_CTL, load =>load_f, frequency => freq, interrupt => send_data, output_sec => display_sec, output_min => display_min);
+chip: UMC_Agrichip1 port map (clk => clk, arstn => arstn, measure_period => measurement_period(5 downto 0), valid_data => valid_period, analog_in => analog_in, powergating => fpga_powergating, load =>load_f, frequency => freq, interrupt => send_data, output_sec => display_sec, output_min => display_min);
 
 process(clk, arstn)
     begin 
@@ -131,4 +133,5 @@ HEX1 <= disp1;
 HEX0 <= disp0;
 analog_out <= analog_in;
 IRQ <= irq_reg;
+RO_CTL <= fpga_powergating or STM_powergating;
 end beh;
