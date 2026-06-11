@@ -68,8 +68,8 @@ end component;
 
 component seven_segment_display is 
 port ( 
-SW : in std_logic_vector (3 downto 0); 
-HEX0 : out std_logic_vector (0 to 6) 
+	SW : in std_logic_vector (3 downto 0); 
+	HEX0 : out std_logic_vector (0 to 6) 
 ); 
 end component; 
 

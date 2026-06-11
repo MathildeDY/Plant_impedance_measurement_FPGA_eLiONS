@@ -58,7 +58,7 @@ process(arstn, clk)
 					if minutes = to_unsigned(59,6) then -- 1 hour
 						minutes <= (others => '0');
 						-- increase hours or minutes depending on how we want the time unit be set on the uc
-						hours <= hours + 1;
+--						hours <= hours + 1;
 					else 
 						minutes <= minutes + 1; -- counting minutes
 					end if;
@@ -87,7 +87,7 @@ process(arstn, clk)
 						else
 							wait_time <= unsigned(period);
 						end if;
-						if minutes >= wait_time then -- counts minutes only for testing
+						if minutes >= wait_time then -- counts minutes for testing
 							state <= RESET_PHASE;
 						end if;
 --						if hours >= unsigned(period) then

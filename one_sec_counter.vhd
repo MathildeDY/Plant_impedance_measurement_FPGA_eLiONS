@@ -12,8 +12,8 @@ end one_sec_counter;
 
 architecture behavioral of one_sec_counter is
 
-signal pulses : unsigned (19 downto 0) := (others => '0');
-constant clk_freq : integer				:= 1000000;
+signal pulses : unsigned (25 downto 0) := (others => '0');
+constant CLK_FREQ : integer				:= 48000000;
 
 begin
 
@@ -23,7 +23,7 @@ process(arstn, clk)
 			pulses <= (others => '0');
 			en <= '0';
 		elsif rising_edge(clk) then
-			if pulses = to_unsigned(clk_freq,20) then -- 1sec
+			if pulses = to_unsigned(CLK_FREQ,26) then -- 1sec
 				en <= '1';
 				pulses <= (others => '0');
 			else 
