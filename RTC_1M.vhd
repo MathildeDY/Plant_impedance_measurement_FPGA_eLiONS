@@ -13,6 +13,7 @@ entity RTC_1M is
 		powergating : out STD_LOGIC;
 		cnt_en : out STD_LOGIC;
 		output_sec : out std_logic_vector (11 downto 0);
+		measure_flag : in std_logic;
 		output_min : out std_logic_vector (11 downto 0)
     );
 end RTC_1M;
@@ -100,7 +101,9 @@ process(arstn, clk)
 					when MEASURE => -- input capture measure
 						powergating <= '1';
 						cnt_en <= '1';
-						state <= STOP;
+						if (measure_flag = '1') then -- Set to one when input_capture has enough measures
+							state <= STOP;
+						end if;
 					when STOP => -- input capture stop
 						cnt_en <= '0';
 						powergating <= '0';
