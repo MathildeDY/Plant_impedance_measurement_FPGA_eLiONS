@@ -27,8 +27,8 @@ signal prev_signal : std_logic;
 signal max : unsigned (N-1 downto 0) := (others => '1'); 
 signal min : unsigned (N-1 downto 0) := (others => '0');
 signal sum_ticks : unsigned(31 downto 0);
-signal sample_counter : unsigned(3 downto 0) := (others => '0');
-constant NB_Samples : integer := 15;
+signal sample_counter : unsigned(5 downto 0) := (others => '0');
+constant NB_Samples : integer := 32;
 begin
 
 process(clk, arstn)
@@ -65,7 +65,9 @@ process(clk, arstn)
 			end if;
 			
 			if (sample_counter = NB_SAMPLES) then
-				ticks <= resize(sum_ticks / NB_SAMPLES, ticks'length); --fclk / ticks;
+				--ticks <= resize(sum_ticks / NB_SAMPLES, ticks'length);
+				-- if NB_SAMPLES is result of 2^^n, we don't have to divise, we can shift -> better slack
+				ticks <= resize(shift_right(sum_ticks, 5), ticks'length);  --fclk / ticks;
 				stm_interrupt <= '1';
 				RTC_flag <= '1';
 				sample_counter <= (others => '0');

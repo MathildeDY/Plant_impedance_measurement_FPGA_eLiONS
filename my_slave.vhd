@@ -65,7 +65,7 @@ architecture arch of my_slave is
   signal sda_wen_reg  : std_logic := '0';
   signal sda_o_reg    : std_logic := '0';
   
-  -- for period received from master
+  -- for sampling interval received from master
    signal data_reg   : std_logic_vector(6 downto 0) := (others => '0');
 	signal period_reg : std_logic_vector(7 downto 0) := (others => '0');
 	
@@ -74,6 +74,10 @@ architecture arch of my_slave is
   signal data_to_master_reg : std_logic_vector(7 downto 0)  := (others => '0');
   signal byte_read_count    : unsigned(0 downto 0)          := (others => '0');
   
+  -- for timemout when stuck
+  signal timeout_counter : unsigned(20 downto 0) := (others => '0');
+  constant TIMEOUT_MAX : unsigned(20 downto 0) := to_unsigned(2000000,21); -- 2s  
+	
 begin
 
   debounce : if USE_INPUT_DEBOUNCING generate
@@ -159,6 +163,16 @@ begin
       -- Default assignments
       sda_o_reg   <= '0';
       sda_wen_reg <= '0';
+		
+		if (state_reg /= idle) then -- Timeout if blocked
+			timeout_counter <= timeout_counter + 1;
+			 if (timeout_counter = TIMEOUT_MAX) then
+				  state_reg <= idle;
+				  timeout_counter <= (others => '0');
+			 end if;
+		else
+			 timeout_counter <= (others => '0');
+		end if;
 
       case state_reg is
 
