@@ -164,10 +164,14 @@ begin
       sda_o_reg   <= '0';
       sda_wen_reg <= '0';
 		
-		if (state_reg /= idle) then -- Timeout if blocked
+		-- Timeout if blocked
+		if (state_reg /= idle) then 
 			timeout_counter <= timeout_counter + 1;
 			 if (timeout_counter = TIMEOUT_MAX) then
 				  state_reg <= idle;
+				  bits_processed_reg <= 0;
+				  byte_read_count <= (others => '0');
+				  continue_reg <= '0';
 				  timeout_counter <= (others => '0');
 			 end if;
 		else

@@ -41,12 +41,12 @@ end component;
 component UMC_Agrichip1 is 
 Port (
 	clk: in STD_LOGIC; 
-        arstn   : in  STD_LOGIC;
+	arstn   : in  STD_LOGIC;
    measure_period : in std_logic_vector (5 downto 0);
 	valid_data : in std_logic;
 	analog_in : in STD_LOGIC; 
 	frequency : out unsigned (15 downto 0);
-        load : out std_logic;
+	load : out std_logic;
    powergating : out std_logic;
 	output_sec : out std_logic_vector (11 downto 0);
 	interrupt : out std_logic;
