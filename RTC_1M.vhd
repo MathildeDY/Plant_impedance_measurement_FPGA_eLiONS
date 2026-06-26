@@ -12,8 +12,8 @@ entity RTC_1M is
 		data_valid : in std_logic;
 		powergating : out STD_LOGIC;
 		cnt_en : out STD_LOGIC;
+		done : out std_logic;
 		output_sec : out std_logic_vector (11 downto 0);
-		measure_flag : in std_logic;
 		output_min : out std_logic_vector (11 downto 0)
     );
 end RTC_1M;
@@ -29,13 +29,13 @@ component one_sec_counter is
 end component;
 
 signal minutes : unsigned  (5 downto 0) := (others => '0');
-signal wait_time : unsigned (5 downto 0);
-signal hours : unsigned (5 downto 0) := (others => '0');
+signal wait_time : unsigned (5 downto 0) := to_unsigned(1,6);
 signal seconds : unsigned (5 downto 0) := (others => '0'); 
 signal sec_enable : std_logic := '0';
 signal reset_time : std_logic := '0';
 type state_t is (IDLE, RESET_PHASE, MEASURE, STOP);
 signal state : state_t := IDLE;
+signal TIM : unsigned(5 downto 0) := (others => '0');
 
 begin 
 
@@ -47,19 +47,15 @@ process(arstn, clk)
 		if arstn = '0' then --reset
 			minutes <= (others => '0');
 			seconds <= (others => '0');
-			hours <= (others => '0');
 		elsif rising_edge(clk) then
 			if reset_time = '1' then -- reset after input capture
 				minutes <= (others => '0');
 				seconds <= (others => '0');
-				hours <= (others => '0');
 			elsif sec_enable = '1' then
 				if seconds = to_unsigned(59,6) then -- 1 min
 					seconds <= (others => '0');
 					if minutes = to_unsigned(59,6) then -- 1 hour
 						minutes <= (others => '0');
-						-- increase hours or minutes depending on how we want the time unit be set on the uc
---						hours <= hours + 1;
 					else 
 						minutes <= minutes + 1; -- counting minutes
 					end if;
@@ -78,22 +74,27 @@ process(arstn, clk)
 			state <= IDLE;
 			powergating <= '0';
 			cnt_en <= '0';
+			done <= '0';
+			reset_time <= '0';
+			TIM <= (others => '0');
+			wait_time <= to_unsigned(1,6); -- Added after default wait_time changed -> to test
 		elsif rising_edge(clk) then
 			if sec_enable = '1' then -- every second
 				case state is
 					when IDLE => -- waiting for right timing
 						reset_time <= '0';
-						if data_valid = '0' then
-							wait_time <= to_unsigned(2,6); -- Default waiting time 2 min
-						else
+						done <= '1';
+--						if data_valid = '0' then
+--							wait_time <= to_unsigned(1,6); -- Default waiting time 2 min
+--						else
+						if data_valid = '1' then
 							wait_time <= unsigned(period);
 						end if;
-						if minutes >= wait_time then -- counts minutes for testing
+						if minutes >= wait_time then -- counts minutes
 							state <= RESET_PHASE;
+							TIM <= (others => '0');
+							done <= '0';
 						end if;
---						if hours >= unsigned(period) then
---							state <= RESET_PHASE;
---						end if;
 					when RESET_PHASE => -- input capture reset
 						powergating <= '1';
 						cnt_en <= '0';
@@ -101,12 +102,15 @@ process(arstn, clk)
 					when MEASURE => -- input capture measure
 						powergating <= '1';
 						cnt_en <= '1';
-						if (measure_flag = '1') then -- Set to one when input_capture has enough measures
+						if (TIM = to_unsigned(59,6)) then -- Measure for 1 minute (60 sec)
 							state <= STOP;
-						end if;
+						else
+							TIM <= TIM + 1;
+						end if;	
 					when STOP => -- input capture stop
-						cnt_en <= '0';
 						powergating <= '0';
+						cnt_en <= '0';
+						TIM <= (others => '0');
 						state <= IDLE;
 						reset_time <= '1'; -- min and sec reset
 				end case;

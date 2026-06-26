@@ -23,7 +23,7 @@ process(arstn, clk)
 			pulses <= (others => '0');
 			en <= '0';
 		elsif rising_edge(clk) then
-			if pulses = to_unsigned(CLK_FREQ,26) then -- 1sec
+			if pulses = to_unsigned(CLK_FREQ-1,26) then -- 1sec
 				en <= '1';
 				pulses <= (others => '0');
 			else 

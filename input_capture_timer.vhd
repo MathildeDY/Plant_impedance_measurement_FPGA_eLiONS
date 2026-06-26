@@ -3,95 +3,128 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL; 
 
 entity input_capture_timer is 
-
-generic (
-	   N : integer  := 16  -- Timer parallelism     
-        );
-
-port (     clk     : in  STD_LOGIC;    
-	        enable     : in  STD_LOGIC;          
-           arstn   : in  STD_LOGIC;           
-           analog_in : in  STD_LOGIC;  
-			  clear : in std_logic;
-			  stm_interrupt : out std_logic;
-			  RTC_flag : out std_logic;
-           ticks  : out unsigned (N-1 downto 0)  
+port (
+		clk     : in  STD_LOGIC;   
+		ongoing_measurements : in std_logic;
+		measurement_done : in std_logic;
+		powergating : in std_logic;
+		arstn : in std_logic;
+		analog_in : in std_logic;
+		ticks : out unsigned(15 downto 0);
+		stm_interrupt : out std_logic
       );
-
 end input_capture_timer; 
 
 architecture beh of input_capture_timer is 
 
-signal counter, acquisition_1, acquisition_2 : unsigned (N-1 downto 0);
-signal prev_signal : std_logic;
-signal max : unsigned (N-1 downto 0) := (others => '1'); 
-signal min : unsigned (N-1 downto 0) := (others => '0');
-signal sync1, sync2 : std_logic; --synchronizing input
-signal sum_ticks : unsigned(31 downto 0);
-signal sample_counter : unsigned(9 downto 0) := (others => '0');
-constant NB_Samples : integer := 512; -- 2^^9
+COMPONENT my_divider
+    PORT (
+        numer    : IN  STD_LOGIC_VECTOR(31 downto 0);
+        denom    : IN  STD_LOGIC_VECTOR(31 downto 0);
+        quotient : OUT STD_LOGIC_VECTOR(31 downto 0);
+        remain   : OUT STD_LOGIC_VECTOR(31 downto 0)
+ );
+ end component;
+
+constant N_AVERAGE_EDGES : unsigned(3 downto 0) := to_unsigned(10,4); -- Ignore first N measures for accuracy
+
+signal meas_count : unsigned(31 downto 0) := (others => '0');
+signal ignored_edges : unsigned(3 downto 0) := (others => '0');
+signal freq_accumulator : unsigned(31 downto 0) := (others => '0');
+signal timer_counter : unsigned(15 downto 0) := (others => '0');
+signal old_value : unsigned(15 downto 0) := (others => '0');
+
+-- Synchronization
+signal sig_meta      : std_logic := '0';
+signal sig_sync      : std_logic := '0';
+signal sig_prev      : std_logic := '0';
+
+-- Signals for the divider
+signal div_quotient : std_logic_vector(31 downto 0) := (others => '0');
+signal div_remain   : std_logic_vector(31 downto 0) := (others => '0');
+
 begin
 
+div_inst : my_divider
+ port map (
+	  numer    => std_logic_vector(freq_accumulator),
+	  denom    => std_logic_vector(meas_count),
+	  quotient => div_quotient,
+	  remain   => div_remain
+ );
+
 process(clk, arstn)
-    begin
-        if (arstn = '0') then				--reset condition, everything at zero
-			counter  <= (others=> '0');
-			prev_signal <= '0'; 
-			acquisition_1 <= (others=> '0');
-			acquisition_2 <= (others=> '0');
-			ticks <= (others=> '0');
+	variable diff : unsigned(15 downto 0) := (others => '0');
+	begin
+		if (arstn = '0') then
+			meas_count <= (others => '0');
+			freq_accumulator <= (others => '0'); 
+			timer_counter <= (others => '0'); 
+			ignored_edges <= (others => '0'); 
+			old_value <= (others => '0');
+			
+			
+		elsif rising_edge(clk) then
+			if (ongoing_measurements = '1') then -- do measure
+				-- timer
+				timer_counter <= timer_counter + 1;
+				
+				-- input synchronizer
+				sig_meta <= analog_in;
+            sig_sync <= sig_meta;
+            sig_prev <= sig_sync;
+				
+				-- Rising edge detection
+				if (sig_prev = '0' and sig_sync = '1') then
+				
+					-- Ignore first capture
+					if (old_value /= 0) then
+						
+						-- Get ticks
+						if (timer_counter >= old_value) then
+							diff := timer_counter - old_value;
+						else -- with overflow
+							diff := to_unsigned(65535,16) - old_value + timer_counter;
+						end if;
+						
+						-- Ignore a fixed number of measures for the accuracy
+						if (ignored_edges <= N_AVERAGE_EDGES-1) then 
+							ignored_edges <= ignored_edges + 1;
+						else 
+							freq_accumulator <= freq_accumulator + resize(diff,32);
+							meas_count <= meas_count + 1;
+						end if;
+						
+					end if;
+					old_value <= timer_counter;
+					
+				end if;
+				
+			elsif (ongoing_measurements = '0' and powergating = '1') then --reset
+				meas_count <= (others => '0');
+				freq_accumulator <= (others => '0'); 
+				timer_counter <= (others => '0'); 
+				ignored_edges <= (others => '0'); 
+				old_value <= (others => '0');
+			end if;
+		end if;
+	
+end process;
+
+process(clk, arstn)
+	begin
+		if (arstn = '0') then
+			ticks <= (others => '0');
 			stm_interrupt <= '0';
-			RTC_flag <= '0';
-			sample_counter <= (others=> '0');
-			sum_ticks <= (others=> '0');
-
-        elsif (clk'event and clk = '1') then             -- at each clock rising edge
-	
-		if (enable = '1') then			-- if enable is active
-			counter <= counter + 1;  	-- the timer counts
-		
-			if (prev_signal = '0' and sync2 = '1') then   --  if there is a rising edge..
-				acquisition_1 <= acquisition_2;                      -- we capture the two acquisitions ..
-				acquisition_2 <= counter; 
-			end if ; 
-			prev_signal <= sync2; 
-
-			if (acquisition_1 /= min and acquisition_2 /= min) then      -- if we filled both the acquisitions, we can compute 				if (acquisition_2 > acquisition_1 ) then -- no overflow
-					sum_ticks <= sum_ticks + resize((acquisition_2 - acquisition_1),sum_ticks'length);
-					sample_counter <= sample_counter + 1;
-
-			elsif (acquisition_2 < acquisition_1) then -- with overflow
-					sum_ticks <= sum_ticks + resize((acquisition_2 + max - acquisition_1),sum_ticks'length);
-					sample_counter <= sample_counter + 1;
-			end if;
-			
-			if (sample_counter = NB_SAMPLES) then
-				--ticks <= resize(sum_ticks / NB_SAMPLES, ticks'length);
-				-- if NB_SAMPLES is result of 2^^n, we don't have to divise, we can shift -> better slack
-				ticks <= resize(shift_right(sum_ticks, 9), ticks'length);  --fclk / ticks;
+		elsif rising_edge(clk) then
+			if (measurement_done = '1' and meas_count > 0) then
+				--ticks <= unsigned(div_quotient(15 downto 0));
+				ticks <= resize(freq_accumulator / meas_count,16);
 				stm_interrupt <= '1';
-				RTC_flag <= '1';
-				sample_counter <= (others => '0');
-				sum_ticks <= (others => '0');
+			elsif (measurement_done = '0') then
+				stm_interrupt <= '0';
 			end if;
-			
-		elsif (enable = '0' and clear = '1' ) then
-			 counter  <= (others=> '0');
-			 prev_signal <= '0'; 
-			 acquisition_1 <= (others=> '0');
-			 acquisition_2 <= (others=> '0');
-			 ticks <= (others=> '0'); 
-			 stm_interrupt <= '0';
-			 RTC_flag <= '0';
-			 sample_counter <= (others=> '0');
-			 sum_ticks <= (others=> '0');
-		end if; 
-		    
-        end if;
-	
-    end process; 
-
-sync1 <= analog_in;
-sync2 <= sync1;
+		end if;
+end process;
 
 end beh;
