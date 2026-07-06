@@ -29,7 +29,7 @@ component one_sec_counter is
 end component;
 
 signal minutes : unsigned  (5 downto 0) := (others => '0');
-signal wait_time : unsigned (5 downto 0) := to_unsigned(1,6);
+signal wait_time : unsigned (5 downto 0) := to_unsigned(15,6); -- 15 min default period
 signal seconds : unsigned (5 downto 0) := (others => '0'); 
 signal sec_enable : std_logic := '0';
 signal reset_time : std_logic := '0';
@@ -77,16 +77,13 @@ process(arstn, clk)
 			done <= '0';
 			reset_time <= '0';
 			TIM <= (others => '0');
-			wait_time <= to_unsigned(1,6); -- Added after default wait_time changed -> to test
+			wait_time <= to_unsigned(1,6);
 		elsif rising_edge(clk) then
 			if sec_enable = '1' then -- every second
 				case state is
 					when IDLE => -- waiting for right timing
 						reset_time <= '0';
 						done <= '1';
---						if data_valid = '0' then
---							wait_time <= to_unsigned(1,6); -- Default waiting time 2 min
---						else
 						if data_valid = '1' then
 							wait_time <= unsigned(period);
 						end if;

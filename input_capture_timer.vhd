@@ -17,15 +17,6 @@ end input_capture_timer;
 
 architecture beh of input_capture_timer is 
 
-COMPONENT my_divider
-    PORT (
-        numer    : IN  STD_LOGIC_VECTOR(31 downto 0);
-        denom    : IN  STD_LOGIC_VECTOR(31 downto 0);
-        quotient : OUT STD_LOGIC_VECTOR(31 downto 0);
-        remain   : OUT STD_LOGIC_VECTOR(31 downto 0)
- );
- end component;
-
 constant N_AVERAGE_EDGES : unsigned(3 downto 0) := to_unsigned(10,4); -- Ignore first N measures for accuracy
 
 signal meas_count : unsigned(31 downto 0) := (others => '0');
@@ -39,19 +30,7 @@ signal sig_meta      : std_logic := '0';
 signal sig_sync      : std_logic := '0';
 signal sig_prev      : std_logic := '0';
 
--- Signals for the divider
-signal div_quotient : std_logic_vector(31 downto 0) := (others => '0');
-signal div_remain   : std_logic_vector(31 downto 0) := (others => '0');
-
 begin
-
-div_inst : my_divider
- port map (
-	  numer    => std_logic_vector(freq_accumulator),
-	  denom    => std_logic_vector(meas_count),
-	  quotient => div_quotient,
-	  remain   => div_remain
- );
 
 process(clk, arstn)
 	variable diff : unsigned(15 downto 0) := (others => '0');
@@ -118,7 +97,6 @@ process(clk, arstn)
 			stm_interrupt <= '0';
 		elsif rising_edge(clk) then
 			if (measurement_done = '1' and meas_count > 0) then
-				--ticks <= unsigned(div_quotient(15 downto 0));
 				ticks <= resize(freq_accumulator / meas_count,16);
 				stm_interrupt <= '1';
 			elsif (measurement_done = '0') then
