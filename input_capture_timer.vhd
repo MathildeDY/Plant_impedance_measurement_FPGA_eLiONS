@@ -11,19 +11,23 @@ port (
 		arstn : in std_logic;
 		analog_in : in std_logic;
 		ticks : out unsigned(15 downto 0);
+		edges_reached : out std_logic;
 		stm_interrupt : out std_logic
       );
 end input_capture_timer; 
 
 architecture beh of input_capture_timer is 
 
+constant MY_N_FRONTS : unsigned(6 downto 0) := to_unsigned(100,7);
 constant N_AVERAGE_EDGES : unsigned(3 downto 0) := to_unsigned(10,4); -- Ignore first N measures for accuracy
 
-signal meas_count : unsigned(31 downto 0) := (others => '0');
+signal meas_count : unsigned(6 downto 0) := (others => '0');
 signal ignored_edges : unsigned(3 downto 0) := (others => '0');
 signal freq_accumulator : unsigned(31 downto 0) := (others => '0');
 signal timer_counter : unsigned(15 downto 0) := (others => '0');
 signal old_value : unsigned(15 downto 0) := (others => '0');
+signal measure_on : std_logic := '0';
+signal edges_left : std_logic := '1';
 
 -- Synchronization
 signal sig_meta      : std_logic := '0';
@@ -41,10 +45,15 @@ process(clk, arstn)
 			timer_counter <= (others => '0'); 
 			ignored_edges <= (others => '0'); 
 			old_value <= (others => '0');
+			edges_left <= '1';
 			
 			
 		elsif rising_edge(clk) then
-			if (ongoing_measurements = '1') then -- do measure
+			measure_on <= (ongoing_measurements AND edges_left);
+			edges_reached <= not edges_left;
+			
+			
+			if (measure_on = '1') then -- do measure
 				-- timer
 				timer_counter <= timer_counter + 1;
 				
@@ -69,9 +78,12 @@ process(clk, arstn)
 						-- Ignore a fixed number of measures for the accuracy
 						if (ignored_edges <= N_AVERAGE_EDGES-1) then 
 							ignored_edges <= ignored_edges + 1;
-						else 
+						-- Stop after a fixed number of samples
+						elsif (meas_count <= MY_N_FRONTS-1) then
 							freq_accumulator <= freq_accumulator + resize(diff,32);
 							meas_count <= meas_count + 1;
+						else
+							edges_left <= '0';
 						end if;
 						
 					end if;
@@ -85,6 +97,7 @@ process(clk, arstn)
 				timer_counter <= (others => '0'); 
 				ignored_edges <= (others => '0'); 
 				old_value <= (others => '0');
+				edges_left <= '1';
 			end if;
 		end if;
 	

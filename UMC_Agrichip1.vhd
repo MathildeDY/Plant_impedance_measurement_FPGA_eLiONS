@@ -27,6 +27,7 @@ component RTC_1M is
 		arstn   : in  STD_LOGIC;	  
 		period : in STD_LOGIC_VECTOR (5 downto 0);
 		data_valid : in std_logic;
+		edges_reached : in std_logic;
 		powergating : out STD_LOGIC;
 		cnt_en : out STD_LOGIC;
 		done : out std_logic;
@@ -44,6 +45,7 @@ port (
 		arstn : in std_logic;
 		analog_in : in std_logic;
 		ticks : out unsigned(15 downto 0);
+		edges_reached : out std_logic;
 		stm_interrupt : out std_logic
       );
 end component; 
@@ -52,12 +54,13 @@ signal cnten, power_gating : std_logic;
 signal frequency_buff : unsigned(15 downto 0); 
 signal interrupt_buff : std_logic;
 signal flag : std_logic;
+signal edges : std_logic;
 
 begin
 
-rtc: RTC_1M port map (clk => clk, arstn => arstn, period => measure_period(5 downto 0), done => flag, data_valid => valid_data, powergating=> power_gating, cnt_en=>cnten, output_sec => output_sec, output_min => output_min);
+rtc: RTC_1M port map (clk => clk, arstn => arstn, period => measure_period(5 downto 0), done => flag, data_valid => valid_data, powergating=> power_gating, cnt_en=>cnten, edges_reached => edges, output_sec => output_sec, output_min => output_min);
 
-extratimer: input_capture_timer port map (clk => clk, arstn => arstn, ongoing_measurements => cnten, measurement_done => flag, powergating => power_gating, analog_in => analog_in, ticks => frequency_buff, stm_interrupt => interrupt_buff);
+extratimer: input_capture_timer port map (clk => clk, arstn => arstn, ongoing_measurements => cnten, measurement_done => flag, powergating => power_gating, analog_in => analog_in, ticks => frequency_buff, stm_interrupt => interrupt_buff, edges_reached => edges);
 load <= not(power_gating);
 powergating <= power_gating;
 frequency <= frequency_buff; 

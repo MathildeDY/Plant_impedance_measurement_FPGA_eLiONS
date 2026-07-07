@@ -35,6 +35,15 @@ architecture arch of my_slave is
                    answer_ack_start, write,
                    read, read_ack_start,
                    read_ack_got_rising, read_stop);
+						 
+	component one_sec_counter is
+	Port(
+		clk : in std_logic;
+		arstn : in std_logic;
+		en : out std_logic
+	);
+	end component;
+
   -- I2C state management
   signal state_reg          : state_t              := idle;
   signal cmd_reg            : std_logic            := '0';
@@ -75,10 +84,13 @@ architecture arch of my_slave is
   signal byte_read_count    : unsigned(0 downto 0)          := (others => '0');
   
   -- for timemout when stuck
-  signal timeout_counter : unsigned(20 downto 0) := (others => '0');
-  constant TIMEOUT_MAX : unsigned(20 downto 0) := to_unsigned(2000000,21); -- 2s  
+  signal timeout_counter : unsigned(1 downto 0) := (others => '0');
+  signal sec_enable : std_logic := '0';
+  constant TIMEOUT_MAX : unsigned(1 downto 0) := to_unsigned(2,2); -- 2s  
 	
 begin
+
+	sec_count : one_sec_counter port map (arstn => arstn, clk => clk, en => sec_enable);
 
   debounce : if USE_INPUT_DEBOUNCING generate
     -- debounce SCL and SDA
@@ -166,14 +178,16 @@ begin
 		
 		-- Timeout if blocked
 		if (state_reg /= idle) then 
-			timeout_counter <= timeout_counter + 1;
-			 if (timeout_counter = TIMEOUT_MAX) then
+			if sec_enable = '1' then
+				timeout_counter <= timeout_counter + 1;
+				if (timeout_counter = TIMEOUT_MAX) then
 				  state_reg <= idle;
 				  bits_processed_reg <= 0;
 				  byte_read_count <= (others => '0');
 				  continue_reg <= '0';
 				  timeout_counter <= (others => '0');
-			 end if;
+				end if;
+			end if;
 		else
 			 timeout_counter <= (others => '0');
 		end if;
