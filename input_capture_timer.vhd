@@ -18,10 +18,11 @@ end input_capture_timer;
 
 architecture beh of input_capture_timer is 
 
-constant MY_N_FRONTS : unsigned(6 downto 0) := to_unsigned(100,7);
+constant MY_N_FRONTS : unsigned(7 downto 0) := to_unsigned(128,8);
+constant MY_N_FRONTS_LOG2 : integer := 7; -- 2^7 = 128
 constant N_AVERAGE_EDGES : unsigned(3 downto 0) := to_unsigned(10,4); -- Ignore first N measures for accuracy
 
-signal meas_count : unsigned(6 downto 0) := (others => '0');
+signal meas_count : unsigned(7 downto 0) := (others => '0');
 signal ignored_edges : unsigned(3 downto 0) := (others => '0');
 signal freq_accumulator : unsigned(31 downto 0) := (others => '0');
 signal timer_counter : unsigned(15 downto 0) := (others => '0');
@@ -79,11 +80,12 @@ process(clk, arstn)
 						if (ignored_edges <= N_AVERAGE_EDGES-1) then 
 							ignored_edges <= ignored_edges + 1;
 						-- Stop after a fixed number of samples
-						elsif (meas_count <= MY_N_FRONTS-1) then
+						elsif (meas_count <= MY_N_FRONTS) then
 							freq_accumulator <= freq_accumulator + resize(diff,32);
 							meas_count <= meas_count + 1;
-						else
-							edges_left <= '0';
+							if (meas_count = MY_N_FRONTS-1) then
+								edges_left <= '0';
+							end if;
 						end if;
 						
 					end if;
@@ -110,7 +112,7 @@ process(clk, arstn)
 			stm_interrupt <= '0';
 		elsif rising_edge(clk) then
 			if (measurement_done = '1' and meas_count > 0) then
-				ticks <= resize(freq_accumulator / meas_count,16);
+				ticks <= resize(shift_right(freq_accumulator,MY_N_FRONTS_LOG2),16);
 				stm_interrupt <= '1';
 			elsif (measurement_done = '0') then
 				stm_interrupt <= '0';

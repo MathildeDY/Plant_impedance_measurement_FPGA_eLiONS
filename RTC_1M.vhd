@@ -19,6 +19,14 @@ end RTC_1M;
 
 architecture beh of RTC_1M is 
 
+component msec_counter is
+	Port(
+		clk : in std_logic;
+		arstn : in std_logic;
+		en : out std_logic
+	);
+end component;
+
 component one_sec_counter is
 	Port(
 		clk : in std_logic;
@@ -28,17 +36,20 @@ component one_sec_counter is
 end component;
 
 signal minutes : unsigned  (5 downto 0) := (others => '0');
-signal wait_time : unsigned (5 downto 0) := to_unsigned(15,6); -- 15 min default period
-signal seconds : unsigned (5 downto 0) := (others => '0'); 
+signal wait_time : unsigned (5 downto 0) := to_unsigned(2,6); -- 15 min default period
+signal seconds : unsigned (5 downto 0) := (others => '0');
+signal ms_enable : std_logic := '0';
 signal sec_enable : std_logic := '0';
 signal reset_time : std_logic := '0';
 type state_t is (IDLE, RESET_PHASE, MEASURE, STOP);
 signal state : state_t := IDLE;
 signal TIM : unsigned(5 downto 0) := (others => '0');
+signal ms_counter : unsigned(7 downto 0) := (others => '0');
 
 begin 
 
 sec_count : one_sec_counter port map (arstn => arstn, clk => clk, en => sec_enable);
+ms_count : msec_counter port map (arstn => arstn, clk => clk, en => ms_enable);
 
 -- Counters
 process(arstn, clk)
@@ -61,7 +72,6 @@ process(arstn, clk)
 		end if;
 end process;
 
-
 -- Input capture control
 process(arstn, clk)
 	begin
@@ -72,42 +82,50 @@ process(arstn, clk)
 			done <= '0';
 			reset_time <= '0';
 			TIM <= (others => '0');
+			ms_counter <= (others => '0');
 			wait_time <= to_unsigned(2,6);
 		elsif rising_edge(clk) then
-			if sec_enable = '1' then -- every second
-				case state is
-					when IDLE => -- waiting for right timing
-						reset_time <= '0';
-						if data_valid = '1' then
-							wait_time <= unsigned(period);
+			case state is
+				when IDLE => -- waiting for right timing
+					reset_time <= '0';
+					done <= '0';
+					if data_valid = '1' then
+						wait_time <= unsigned(period);
+					end if;
+					if minutes >= wait_time then -- counts minutes
+						state <= RESET_PHASE;
+					end if;
+				when RESET_PHASE => -- input capture reset
+					powergating <= '1';
+					cnt_en <= '0';
+					if (ms_enable = '1') then	
+						if (ms_counter = to_unsigned(149,8)) then
+							state <= MEASURE;
+						else
+							ms_counter <= ms_counter + 1;
 						end if;
-						if minutes >= wait_time then -- counts minutes
-							state <= RESET_PHASE;
-							done <= '0';
-						end if;
-					when RESET_PHASE => -- input capture reset
-						powergating <= '1';
-						cnt_en <= '0';
-						state <= MEASURE;
-					when MEASURE => -- input capture measure
+					end if;
+				when MEASURE => -- input capture measure
+					if (sec_enable = '1') then -- every second
 						powergating <= '1';
 						cnt_en <= '1';
-						if (TIM = to_unsigned(58,6)) then -- Measure for 1 minute (60 sec)
+						if (TIM = to_unsigned(59,6)) then -- Measure for 1 minute (60 sec)
 							state <= STOP;
 						elsif (edges_reached = '1') then
 							state <= STOP;
 						else
 							TIM <= TIM + 1;
 						end if;	
-					when STOP => -- input capture stop
-						powergating <= '0';
-						cnt_en <= '0';
-						TIM <= (others => '0');
-						state <= IDLE;
-						reset_time <= '1'; -- min and sec reset
-						done <= '1';
-				end case;
-			end if;
+					end if;
+				when STOP => -- input capture stop
+					powergating <= '0';
+					cnt_en <= '0';
+					TIM <= (others => '0');
+					ms_counter <= (others => '0');
+					state <= IDLE;
+					reset_time <= '1'; -- min and sec reset
+					done <= '1';
+			end case;
 		end if;
 end process;
 
