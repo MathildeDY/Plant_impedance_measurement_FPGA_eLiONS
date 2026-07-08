@@ -7,7 +7,7 @@ entity one_min_counter is
 			arstn : in std_logic;
 			clk : in std_logic;
 			en : out std_logic;
-			sec : out std_logic_vector (5 downto 0)
+			sec : out std_logic_vector (5 downto 0) -- Display for debug
 		);
 end one_min_counter;
 
@@ -34,12 +34,12 @@ process(arstn, clk)
 			seconds <= (others => '0');
 			en <= '0';
 		elsif rising_edge(clk) then
+			en <= '0';
 			if sec_en = '1' then
 				if seconds = to_unsigned(59,6) then -- 60 sec
 					en <= '1';
 					seconds <= (others => '0');
 				else
-					en <= '0';
 					seconds <= seconds + 1; -- keep counting
 				end if;
 			end if;

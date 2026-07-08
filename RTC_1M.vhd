@@ -35,11 +35,21 @@ component one_sec_counter is
 	);
 end component;
 
+component one_min_counter is
+		Port (
+			arstn : in std_logic;
+			clk : in std_logic;
+			en : out std_logic;
+			sec : out std_logic_vector (5 downto 0) -- Display for debug
+		);
+end component;
+
 signal minutes : unsigned  (5 downto 0) := (others => '0');
 signal wait_time : unsigned (5 downto 0) := to_unsigned(2,6); -- 15 min default period
-signal seconds : unsigned (5 downto 0) := (others => '0');
+signal seconds : std_logic_vector(5 downto 0);
 signal ms_enable : std_logic := '0';
 signal sec_enable : std_logic := '0';
+signal min_enable : std_logic := '0';
 signal reset_time : std_logic := '0';
 type state_t is (IDLE, RESET_PHASE, MEASURE, STOP);
 signal state : state_t := IDLE;
@@ -50,24 +60,18 @@ begin
 
 sec_count : one_sec_counter port map (arstn => arstn, clk => clk, en => sec_enable);
 ms_count : msec_counter port map (arstn => arstn, clk => clk, en => ms_enable);
+min_count : one_min_counter port map (arstn => arstn, clk => clk, en => min_enable, sec => seconds);
 
 -- Counters
 process(arstn, clk)
 	begin
 		if arstn = '0' then --reset
 			minutes <= (others => '0');
-			seconds <= (others => '0');
 		elsif rising_edge(clk) then
 			if reset_time = '1' then -- reset after input capture
 				minutes <= (others => '0');
-				seconds <= (others => '0');
-			elsif sec_enable = '1' then
-				if seconds = to_unsigned(59,6) then -- 1 min
-					seconds <= (others => '0');
-					minutes <= minutes + 1; -- counting minutes
-				else 
-					seconds <= seconds + 1; -- couting seconds
-				end if;
+			elsif min_enable = '1' then
+				minutes <= minutes + 1; -- counting minutes
 			end if;
 		end if;
 end process;
